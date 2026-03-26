@@ -9,13 +9,12 @@ const NAV_TOP = [
   { to: '/library', icon: BookOpen, label: 'Library' },
   { to: '/calendar', icon: Calendar, label: 'Calendar' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-  { to: '/trending', icon: TrendingUp, label: 'Trending' },
-  { to: '/ugc', icon: Users, label: 'UGC Avatars' },
 ]
 const NAV_BOTTOM = [
   { to: '/brand', icon: Tag, label: 'Brand' },
   { to: '/guide', icon: HelpCircle, label: 'Guide' },
   { to: '/engagement', icon: MessageSquare, label: 'Feedback' },
+  { href: 'https://discord.gg/aaAQ9VzQ6j', icon: MessageSquare, label: 'Discord' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -93,19 +92,35 @@ export default function Sidebar() {
         {/* Divider */}
         <div style={{ height: 1, background: 'rgba(229,231,235,0.8)', margin: '8px 0' }} />
 
-        {NAV_BOTTOM.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
-            fontSize: 13, fontWeight: isActive ? 600 : 400,
-            color: isActive ? '#111827' : '#6B7280',
-            background: isActive ? '#F3F4F6' : 'transparent',
-            transition: 'all 0.15s'
-          })}>
-            <Icon size={15} />
-            {label}
-          </NavLink>
-        ))}
+        {NAV_BOTTOM.map((item) => {
+          const { icon: Icon, label } = item
+          if (item.href) {
+            return (
+              <a key={label} href={item.href} target="_blank" rel="noopener noreferrer" style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
+                fontSize: 13, fontWeight: 400, color: '#6B7280',
+                transition: 'all 0.15s'
+              }}>
+                <Icon size={15} />
+                {label}
+              </a>
+            )
+          }
+          return (
+            <NavLink key={item.to} to={item.to} style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
+              fontSize: 13, fontWeight: isActive ? 600 : 400,
+              color: isActive ? '#111827' : '#6B7280',
+              background: isActive ? '#F3F4F6' : 'transparent',
+              transition: 'all 0.15s'
+            })}>
+              <Icon size={15} />
+              {label}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* User bottom */}

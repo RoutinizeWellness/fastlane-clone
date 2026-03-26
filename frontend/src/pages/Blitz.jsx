@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Settings, X, Check } from 'lucide-react'
+import { Settings, X, Check, Bookmark, Download } from 'lucide-react'
 import { VIRAL_CONTENT, CONTENT_TAGS, fmtNum, getByType } from '../lib/viralContent'
+import { saveToLibrary, downloadContent } from '../lib/contentActions'
 
 // Shuffle for variety
 const SHUFFLED = [...VIRAL_CONTENT].sort(() => Math.random() - 0.5)
@@ -32,7 +33,20 @@ export default function Blitz() {
   const [modalVideo, setModalVideo] = useState(null)
   const [selectedTheme, setSelectedTheme] = useState(null)
   const [modalVisible, setModalVisible] = useState(false)
+  const [toast, setToast] = useState(null)
   const timerRef = useRef(null)
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
+
+  const handleSave = async (video) => {
+    const res = await saveToLibrary(video)
+    showToast(res.message)
+  }
+
+  const handleDownload = async (video, slideIdx) => {
+    showToast('Downloading...')
+    await downloadContent(video, slideIdx)
+  }
 
   const allCards = activeTag
     ? VIRAL_CONTENT.filter(c => c.tags?.includes(activeTag))
@@ -83,32 +97,24 @@ export default function Blitz() {
   return (
     <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FAFAFA' }}>
 
-      {/* Top tag + type bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 24px', background: 'white', borderBottom: '1px solid rgba(229,231,235,0.6)', flexWrap: 'wrap' }}>
-        {/* Type filter pill */}
+      {/* Top bar — content type label + Why This Content */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '10px 24px', background: 'white', borderBottom: '1px solid rgba(229,231,235,0.6)', flexShrink: 0 }}>
+        {/* Content type pill */}
         <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: 9999, padding: 2, gap: 2 }}>
-          <button onClick={() => setActiveType(null)} style={{ padding: '4px 10px', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: !activeType ? 700 : 400, background: !activeType ? 'white' : 'transparent', color: !activeType ? '#111827' : '#6B7280' }}>All</button>
+          <button onClick={() => setActiveType(null)} style={{ padding: '4px 12px', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: !activeType ? 600 : 400, background: !activeType ? 'white' : 'transparent', color: !activeType ? '#111827' : '#6B7280', boxShadow: !activeType ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>All</button>
           {TYPES.map(t => (
-            <button key={t.id} onClick={() => setActiveType(activeType === t.id ? null : t.id)} style={{ padding: '4px 10px', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: activeType === t.id ? 700 : 400, background: activeType === t.id ? 'white' : 'transparent', color: activeType === t.id ? '#111827' : '#6B7280' }}>{t.label}</button>
+            <button key={t.id} onClick={() => setActiveType(activeType === t.id ? null : t.id)} style={{ padding: '4px 12px', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: activeType === t.id ? 600 : 400, background: activeType === t.id ? 'white' : 'transparent', color: activeType === t.id ? '#111827' : '#6B7280', boxShadow: activeType === t.id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}>{t.label}</button>
           ))}
         </div>
 
-        <div style={{ width: 1, height: 16, background: '#E5E7EB' }} />
+        {/* Current type label */}
+        {cur && (
+          <span style={{ padding: '4px 14px', borderRadius: 9999, background: '#F3F4F6', fontSize: 12, fontWeight: 600, color: '#374151' }}>
+            {cur.contentType === 'slideshow' ? 'Slideshow' : cur.contentType === 'wall-of-text' ? 'Wall of Text' : cur.contentType === 'video-hook' ? 'Video Hook & Demo' : cur.contentType === 'green-screen' ? 'Green Screen Meme' : 'Content'}
+          </span>
+        )}
 
-        {/* Tag filters */}
-        {CONTENT_TAGS.slice(0, 6).map(t => (
-          <button key={t.label} onClick={() => setActiveTag(activeTag === t.label ? null : t.label)} style={{
-            padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
-            background: activeTag === t.label ? t.color : 'white',
-            color: activeTag === t.label ? t.textColor : '#6B7280',
-            border: `1px solid ${activeTag === t.label ? t.color : '#E5E7EB'}`,
-            cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap'
-          }}>{t.label}</button>
-        ))}
-
-        <div style={{ width: 1, height: 16, background: '#E5E7EB' }} />
-
-        <button style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 9999, border: '1px solid #E5E7EB', background: 'white', fontSize: 11, color: '#6B7280', cursor: 'pointer' }}>
+        <button style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 9999, border: '1px solid #E5E7EB', background: 'white', fontSize: 12, fontWeight: 500, color: '#6B7280', cursor: 'pointer' }}>
           ⓘ Why This Content?
         </button>
       </div>
@@ -137,7 +143,7 @@ export default function Blitz() {
             } : prev} size="sm" label={cur.remixedFrom ? "Remixed From" : null} onClick={() => advance(-1)} onRemix={openRemixModal} />
 
             {/* CENTER card (MAIN) */}
-            <BlitzCard video={cur} size="lg" active onRemix={openRemixModal} />
+            <BlitzCard video={cur} size="lg" active onRemix={openRemixModal} onSave={handleSave} onDownload={handleDownload} />
 
             {/* RIGHT card */}
             <BlitzCard video={next} size="sm" onClick={() => advance(1)} onRemix={openRemixModal} />
@@ -204,6 +210,18 @@ export default function Blitz() {
           </div>
         )}
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#111827', color: 'white', padding: '10px 24px', borderRadius: 12,
+          fontSize: 13, fontWeight: 600, zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          animation: 'fadeInUp 0.25s ease'
+        }}>
+          {toast}
+        </div>
+      )}
 
       {/* Theme Selector Modal */}
       {modalVideo && (
@@ -325,10 +343,13 @@ export default function Blitz() {
 }
 
 // BlitzCard component
-function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, onRemix }) {
+function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, onRemix, onSave, onDownload }) {
+  const [slideIdx, setSlideIdx] = useState(0)
   if (!video) return null
   const isLg = size === 'lg'
   const W = isLg ? 230 : 155
+  const isSlideshow = video.contentType === 'slideshow' && video.slides && video.slides.length > 0
+  const curSlide = isSlideshow ? (video.slides[slideIdx] || video.slides[0]) : null
 
   return (
     <div
@@ -348,13 +369,85 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
         transition: 'all 0.3s ease',
       }}
     >
-      <video
-        key={video.videoUrl}
-        src={video.videoUrl}
-        poster={video.thumbnail}
-        autoPlay muted loop playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-      />
+      {isSlideshow ? (
+        <>
+          <img
+            src={isLg ? curSlide.imageUrl : (video.slides[0]?.imageUrl || video.thumbnail)}
+            alt={curSlide?.text || ''}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+          {/* Text overlay on slide */}
+          {isLg && curSlide?.text && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '40px 16px 52px', textAlign: 'center',
+              background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.5))',
+              pointerEvents: 'none',
+            }}>
+              <p style={{
+                color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.3,
+                margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+              }}>
+                {curSlide.text}
+              </p>
+            </div>
+          )}
+          {/* Prev / Next slide buttons (large card only) */}
+          {isLg && video.slides.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setSlideIdx(i => Math.max(0, i - 1)) }}
+                aria-label="Previous slide"
+                style={{
+                  position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)',
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, zIndex: 5,
+                }}
+              >&#8249;</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setSlideIdx(i => Math.min(video.slides.length - 1, i + 1)) }}
+                aria-label="Next slide"
+                style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, zIndex: 5,
+                }}
+              >&#8250;</button>
+            </>
+          )}
+          {/* Slide dot indicators (large card only) */}
+          {isLg && video.slides.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 36, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4, zIndex: 5 }}>
+              {video.slides.map((_, si) => (
+                <button
+                  key={si}
+                  onClick={(e) => { e.stopPropagation(); setSlideIdx(si) }}
+                  aria-label={`Go to slide ${si + 1}`}
+                  style={{
+                    width: si === slideIdx ? 14 : 5, height: 5, borderRadius: 3, border: 'none', padding: 0,
+                    background: si === slideIdx ? 'white' : 'rgba(255,255,255,0.45)',
+                    cursor: 'pointer', transition: 'all 0.3s',
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <video
+          key={video.videoUrl}
+          src={video.videoUrl}
+          poster={video.thumbnail}
+          autoPlay muted loop playsInline
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      )}
 
       {/* Remix From label */}
       {label && (
@@ -363,28 +456,181 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
         </div>
       )}
 
-      {/* Caption overlay */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-        <div style={{ padding: isLg ? '40px 12px 52px' : '24px 8px 36px', background: 'linear-gradient(transparent, rgba(0,0,0,0.75) 60%)' }}>
-          <p style={{
-            color: 'white', fontWeight: isLg ? 800 : 700,
-            fontSize: isLg ? 13 : 10, lineHeight: 1.4, margin: 0,
-            textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-            display: '-webkit-box', WebkitLineClamp: isLg ? 4 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+      {/* Caption overlay — varies by contentType */}
+      {video.contentType === 'slideshow' ? (
+        /* SLIDESHOW: if slides exist, carousel handles it above; otherwise fallback colored overlay */
+        !isSlideshow ? (
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: (() => {
+              const colors = ['rgba(139,92,246,0.55)', 'rgba(236,72,153,0.55)', 'rgba(14,165,233,0.55)', 'rgba(249,115,22,0.55)', 'rgba(16,185,129,0.55)']
+              return colors[(video.id || 0) % colors.length]
+            })(),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: isLg ? '40px 16px 52px' : '24px 10px 36px',
           }}>
-            {video.caption}
+            <p style={{
+              color: 'white', fontWeight: 900,
+              fontSize: isLg ? 15 : 11, lineHeight: 1.35, margin: 0,
+              textAlign: 'center',
+              textShadow: '0 2px 8px rgba(0,0,0,0.7), 0 0px 2px rgba(0,0,0,0.5)',
+              display: '-webkit-box', WebkitLineClamp: isLg ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              {video.caption}
+            </p>
+          </div>
+        ) : null
+      ) : video.contentType === 'wall-of-text' ? (
+        /* WALL OF TEXT: dark overlay + long left-aligned text block */
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'rgba(0,0,0,0.65)',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          padding: isLg ? '32px 14px 52px' : '20px 8px 36px',
+        }}>
+          <p style={{
+            color: 'white', fontWeight: 600,
+            fontSize: isLg ? 12 : 9, lineHeight: 1.55, margin: 0,
+            textAlign: 'left',
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            display: '-webkit-box', WebkitLineClamp: isLg ? 8 : 6, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {video.textOverlay || video.caption}
           </p>
           {video.subCaption && isLg && (
-            <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, lineHeight: 1.35, margin: '5px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, lineHeight: 1.4, margin: '6px 0 0', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {video.subCaption}
             </p>
           )}
         </div>
-      </div>
+      ) : video.contentType === 'video-hook' ? (
+        /* VIDEO HOOK: hook badge + caption at TOP with top gradient */
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', pointerEvents: 'none' }}>
+          {/* HOOK badge */}
+          <div style={{
+            position: 'absolute', top: isLg ? 10 : 6, right: isLg ? 10 : 6,
+            background: '#F97316', borderRadius: 6,
+            padding: isLg ? '3px 8px' : '2px 6px',
+            zIndex: 3,
+          }}>
+            <span style={{ color: 'white', fontSize: isLg ? 10 : 8, fontWeight: 800, letterSpacing: 0.5 }}>HOOK</span>
+          </div>
+          {/* Top gradient + caption */}
+          <div style={{ padding: isLg ? '40px 12px 48px' : '28px 8px 32px', background: 'linear-gradient(rgba(0,0,0,0.75) 40%, transparent)' }}>
+            <p style={{
+              color: 'white', fontWeight: isLg ? 800 : 700,
+              fontSize: isLg ? (video.hookText ? 14 : 13) : 10, lineHeight: 1.4, margin: 0,
+              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+              display: '-webkit-box', WebkitLineClamp: isLg ? 4 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+            }}>
+              {video.hookText || video.caption}
+            </p>
+            {video.subCaption && isLg && (
+              <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, lineHeight: 1.35, margin: '5px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {video.subCaption}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : video.contentType === 'green-screen' ? (
+        /* GREEN SCREEN: meme-style text top + bottom, MEME badge */
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+          {/* MEME badge */}
+          <div style={{
+            position: 'absolute', top: isLg ? 10 : 6, left: isLg ? 10 : 6,
+            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', borderRadius: 6,
+            padding: isLg ? '3px 8px' : '2px 6px',
+            zIndex: 3,
+          }}>
+            <span style={{ color: '#34D399', fontSize: isLg ? 10 : 8, fontWeight: 800, letterSpacing: 0.5 }}>MEME</span>
+          </div>
+          {/* Top text */}
+          <div style={{ padding: isLg ? '36px 10px 0' : '24px 6px 0', textAlign: 'center' }}>
+            <p style={{
+              color: 'white', fontWeight: 900,
+              fontSize: isLg ? 14 : 10, lineHeight: 1.3, margin: 0,
+              textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.7)',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              textTransform: 'uppercase',
+            }}>
+              {video.topText || (video.caption ? video.caption.split(/[.!?]\s*/)[0] : '')}
+            </p>
+          </div>
+          {/* Bottom text */}
+          <div style={{ padding: isLg ? '0 10px 52px' : '0 6px 36px', textAlign: 'center' }}>
+            <p style={{
+              color: 'white', fontWeight: 900,
+              fontSize: isLg ? 14 : 10, lineHeight: 1.3, margin: 0,
+              textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.7)',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              textTransform: 'uppercase',
+            }}>
+              {video.bottomText || (video.caption ? video.caption.split(/[.!?]\s*/).slice(1).join('. ') || video.caption.split(' ').slice(-4).join(' ') : '')}
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* DEFAULT: original bottom gradient + caption */
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
+          <div style={{ padding: isLg ? '40px 12px 52px' : '24px 8px 36px', background: 'linear-gradient(transparent, rgba(0,0,0,0.75) 60%)' }}>
+            <p style={{
+              color: 'white', fontWeight: isLg ? 800 : 700,
+              fontSize: isLg ? 13 : 10, lineHeight: 1.4, margin: 0,
+              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+              display: '-webkit-box', WebkitLineClamp: isLg ? 4 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+            }}>
+              {video.caption}
+            </p>
+            {video.subCaption && isLg && (
+              <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, lineHeight: 1.35, margin: '5px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {video.subCaption}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Side metrics (only large) */}
       {isLg && (
         <div style={{ position: 'absolute', right: 8, bottom: 60, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+          {/* Save button */}
+          {onSave && (
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={e => { e.stopPropagation(); onSave(video) }}
+                style={{
+                  width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: 'none', cursor: 'pointer', marginBottom: 2, transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,88,12,0.8)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
+                title="Save to Library"
+              >
+                <Bookmark size={15} color="white" />
+              </button>
+              <span style={{ color: 'white', fontSize: 9, fontWeight: 700 }}>Save</span>
+            </div>
+          )}
+          {/* Download button */}
+          {onDownload && (
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={e => { e.stopPropagation(); onDownload(video, slideIdx) }}
+                style={{
+                  width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: 'none', cursor: 'pointer', marginBottom: 2, transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.8)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
+                title="Download"
+              >
+                <Download size={15} color="white" />
+              </button>
+              <span style={{ color: 'white', fontSize: 9, fontWeight: 700 }}>DL</span>
+            </div>
+          )}
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 2 }}>&#10084;&#65039;</div>
             <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>{fmtNum(video.num_likes)}</span>
@@ -409,8 +655,8 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
         </button>
       </div>
 
-      {/* Dot indicators (large only) */}
-      {isLg && (
+      {/* Dot indicators (large only) — use real slide dots for slideshows */}
+      {isLg && isSlideshow && video.slides.length > 1 ? null : isLg && (
         <div style={{ position: 'absolute', bottom: 3, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 3 }}>
           {[0,1,2,3,4,5,6,7].map(i => (
             <div key={i} style={{ width: i === 3 ? 14 : 4, height: 3, borderRadius: 2, background: i === 3 ? 'white' : 'rgba(255,255,255,0.35)', transition: 'all 0.3s' }} />

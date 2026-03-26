@@ -246,6 +246,55 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* Frequently Asked Questions */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>❓</span>
+          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Frequently Asked Questions</h2>
+        </div>
+        <div style={{ background: 'white', borderRadius: 14, border: '1px solid rgba(229,231,235,0.8)', padding: '4px 20px' }}>
+          {[
+            { q: 'How do I warm up my account?', a: 'Behave like a normal user for 3-5 days. Set up your profile, scroll, like, and comment. After that, begin posting 1-2 times per day while continuing to engage.' },
+            { q: 'Why these content formats?', a: 'Slideshows, wall of text, hook & demo, and green screen memes consistently perform very well across TikTok, Instagram and YouTube. They are fast to consume and feel native.' },
+            { q: 'How does Remix work?', a: 'Remix matches the visual structure and hook psychology of trending content, then adapts it to your niche and product.' },
+            { q: 'How many videos per day?', a: 'We recommend posting 1-3 times per day on each platform after warming up. Consistency matters more than intensity.' },
+            { q: 'Do I need an existing audience?', a: 'No. Short-form content is distributed based on the content itself, not your follower count.' },
+          ].map((faq, i) => (
+            <details key={i} style={{ borderBottom: i < 4 ? '1px solid #F3F4F6' : 'none' }}>
+              <summary style={{
+                padding: '14px 0', cursor: 'pointer', fontSize: 14, fontWeight: 500,
+                color: '#111827', listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                {faq.q}
+              </summary>
+              <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.7, margin: '0 0 14px', paddingRight: 24 }}>{faq.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer links */}
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 32 }}>
+        <a href="https://discord.gg/aaAQ9VzQ6j" target="_blank" rel="noopener noreferrer" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '12px 24px', borderRadius: 12,
+          background: 'white', border: '1px solid #E5E7EB',
+          textDecoration: 'none', color: '#374151', fontWeight: 600, fontSize: 14,
+          cursor: 'pointer'
+        }}>
+          💬 Join our Discord
+        </a>
+        <Link to="/guide" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '12px 24px', borderRadius: 12,
+          background: 'white', border: '1px solid #E5E7EB',
+          textDecoration: 'none', color: '#374151', fontWeight: 600, fontSize: 14,
+          cursor: 'pointer'
+        }}>
+          📖 View Guide
+        </Link>
+      </div>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import Calendar from './pages/Calendar'
 import Analytics from './pages/Analytics'
 import Trending from './pages/Trending'
 import UGC from './pages/UGC'
+import Guide from './pages/Guide'
 import Engagement from './pages/Engagement'
 import Brand from './pages/Brand'
 import Settings from './pages/Settings'
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="trending" element={<Trending />} />
           <Route path="ugc" element={<UGC />} />
+          <Route path="guide" element={<Guide />} />
           <Route path="engagement" element={<Engagement />} />
           <Route path="brand" element={<Brand />} />
           <Route path="settings" element={<Settings />} />

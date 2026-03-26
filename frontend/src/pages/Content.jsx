@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save } from 'lucide-react'
+import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save, Bookmark, Download } from 'lucide-react'
 import api from '../lib/api'
 import { VIRAL_CONTENT, CONTENT_TAGS } from '../lib/viralContent'
 import { formatNumber } from '../lib/utils'
+import { saveToLibrary, downloadContent } from '../lib/contentActions'
 
 const TABS = [
   { id: 'slideshow', label: 'Slideshow', path: 'slideshow' },
   { id: 'wall-of-text', label: 'Wall of Text', path: 'wall-of-text' },
-  { id: 'video-hook', label: 'Hook & Demo', path: 'video-hook' },
+  { id: 'video-hook', label: 'Video Hook & Demo', path: 'video-hook' },
   { id: 'green-screen', label: 'Green Screen Meme', path: 'green-screen' },
 ]
 
@@ -28,7 +29,7 @@ const TAG_COLORS = {
 }
 
 /* ── 3D stacked carousel ─────────────────────────────── */
-function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
+function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, onSlideNav, onSave, onDownload }) {
   const prev2 = videos[(activeIdx - 2 + videos.length) % videos.length]
   const prev1 = videos[(activeIdx - 1 + videos.length) % videos.length]
   const current = videos[activeIdx]
@@ -89,21 +90,201 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
                 willChange: 'transform, opacity',
               }}
             >
-              {video.videoUrl && (
-                <video
-                  key={video.id}
-                  src={video.videoUrl}
-                  poster={video.thumbnail}
-                  autoPlay={isCenter}
-                  muted
-                  loop
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
+              {/* Slideshow image carousel */}
+              {video.contentType === 'slideshow' && video.slides && video.slides.length > 0 ? (
+                (() => {
+                  const curSlideIdx = (slideIdxMap && slideIdxMap[video.id]) || 0
+                  const slide = video.slides[curSlideIdx] || video.slides[0]
+                  return (
+                    <>
+                      <img
+                        src={isCenter ? slide.imageUrl : (video.slides[0]?.imageUrl || video.thumbnail)}
+                        alt={slide.text || ''}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                      {/* Text overlay on current slide */}
+                      {isCenter && slide.text && (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '20px 14px 52px', textAlign: 'center',
+                          background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.5))',
+                          pointerEvents: 'none',
+                        }}>
+                          <p style={{
+                            color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.3,
+                            margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                            display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                          }}>
+                            {slide.text}
+                          </p>
+                        </div>
+                      )}
+                      {/* Prev / Next slide buttons (center card only) */}
+                      {isCenter && video.slides.length > 1 && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, -1) }}
+                            aria-label="Previous slide"
+                            style={{
+                              position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)',
+                              width: 22, height: 22, borderRadius: '50%',
+                              background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 12, zIndex: 5,
+                            }}
+                          >&#8249;</button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, 1) }}
+                            aria-label="Next slide"
+                            style={{
+                              position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                              width: 22, height: 22, borderRadius: '50%',
+                              background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 12, zIndex: 5,
+                            }}
+                          >&#8250;</button>
+                        </>
+                      )}
+                      {/* Slide dot indicators (center card only) */}
+                      {isCenter && video.slides.length > 1 && (
+                        <div style={{ position: 'absolute', bottom: 36, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4, zIndex: 5 }}>
+                          {video.slides.map((_, si) => (
+                            <button
+                              key={si}
+                              onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, si, true) }}
+                              aria-label={`Go to slide ${si + 1}`}
+                              style={{
+                                width: si === curSlideIdx ? 14 : 5, height: 5, borderRadius: 3, border: 'none', padding: 0,
+                                background: si === curSlideIdx ? 'white' : 'rgba(255,255,255,0.45)',
+                                cursor: 'pointer', transition: 'all 0.3s',
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()
+              ) : (
+                <>
+                  {video.videoUrl && (
+                    <video
+                      key={video.id}
+                      src={video.videoUrl}
+                      poster={video.thumbnail}
+                      autoPlay={isCenter}
+                      muted
+                      loop
+                      playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  )}
+                </>
               )}
 
-              {/* Caption overlay */}
-              {isCenter && (
+              {/* Content-type-specific overlay (center card) — slideshow text handled above */}
+              {isCenter && video.contentType === 'wall-of-text' && (
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  padding: '16px 10px 52px',
+                  background: 'linear-gradient(transparent, rgba(0,0,0,0.85) 40%)'
+                }}>
+                  <p style={{
+                    color: 'white', fontSize: 10, fontWeight: 600, lineHeight: 1.5,
+                    margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                    display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                  }}>
+                    {video.textOverlay || video.caption}
+                  </p>
+                  {video.subCaption && (
+                    <p style={{
+                      color: 'rgba(255,255,255,0.75)', fontSize: 9, fontWeight: 400,
+                      margin: '4px 0 0', lineHeight: 1.4,
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    }}>
+                      {video.subCaption}
+                    </p>
+                  )}
+                </div>
+              )}
+              {isCenter && video.contentType === 'video-hook' && (
+                <>
+                  <div style={{
+                    position: 'absolute', top: 10, left: 10, right: 10,
+                    display: 'flex', flexDirection: 'column', gap: 6
+                  }}>
+                    <span style={{
+                      alignSelf: 'flex-start',
+                      padding: '3px 10px', borderRadius: 9999,
+                      background: 'rgba(234,88,12,0.9)',
+                      color: 'white', fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                      textTransform: 'uppercase'
+                    }}>
+                      Hook
+                    </span>
+                    <p style={{
+                      color: 'white', fontSize: video.hookText ? 13 : 11, fontWeight: video.hookText ? 800 : 700, lineHeight: 1.3,
+                      margin: 0, textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    }}>
+                      {video.hookText || video.caption}
+                    </p>
+                  </div>
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    padding: '24px 12px 52px',
+                    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))'
+                  }}>
+                    {video.subCaption && (
+                      <p style={{
+                        color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: 400,
+                        margin: 0, lineHeight: 1.3,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                      }}>
+                        {video.subCaption}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+              {isCenter && video.contentType === 'green-screen' && (
+                <>
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0,
+                    padding: '14px 10px',
+                    background: 'linear-gradient(rgba(0,0,0,0.7), transparent)',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{
+                      color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.2,
+                      margin: 0, textTransform: 'uppercase',
+                      textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
+                      letterSpacing: 0.5
+                    }}>
+                      {video.topText || video.caption?.split(' ').slice(0, Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ')}
+                    </p>
+                  </div>
+                  <div style={{
+                    position: 'absolute', bottom: 0, left: 0, right: 0,
+                    padding: '10px 10px 52px',
+                    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{
+                      color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.2,
+                      margin: 0, textTransform: 'uppercase',
+                      textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
+                      letterSpacing: 0.5
+                    }}>
+                      {video.bottomText || video.caption?.split(' ').slice(Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ')}
+                    </p>
+                  </div>
+                </>
+              )}
+              {/* Fallback caption for center card with unknown/missing contentType */}
+              {isCenter && !['slideshow','wall-of-text','video-hook','green-screen'].includes(video.contentType) && (
                 <div style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
                   padding: '40px 12px 52px',
@@ -116,28 +297,29 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
                   }}>
                     {video.caption}
                   </p>
-                  {video.subCaption && (
-                    <p style={{
-                      color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: 400,
-                      margin: '4px 0 0', lineHeight: 1.3,
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                    }}>
-                      {video.subCaption}
-                    </p>
-                  )}
                 </div>
               )}
 
-              {/* Side card label (non-center) */}
+              {/* Side card label (non-center) — simplified with type indicator */}
               {!isCenter && Math.abs(offset) === 1 && video.caption && (
                 <div style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
                   padding: '24px 8px 40px',
                   background: 'linear-gradient(transparent, rgba(0,0,0,0.7))'
                 }}>
+                  {video.contentType === 'video-hook' && (
+                    <span style={{
+                      display: 'inline-block', marginBottom: 3,
+                      padding: '1px 6px', borderRadius: 9999,
+                      background: 'rgba(234,88,12,0.8)',
+                      color: 'white', fontSize: 7, fontWeight: 800,
+                      textTransform: 'uppercase', letterSpacing: 0.3
+                    }}>Hook</span>
+                  )}
                   <p style={{
                     color: 'white', fontSize: 10, fontWeight: 700, lineHeight: 1.25,
-                    margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    textTransform: video.contentType === 'green-screen' ? 'uppercase' : 'none'
                   }}>
                     {video.caption}
                   </p>
@@ -148,8 +330,40 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
               {isCenter && (
                 <div style={{
                   position: 'absolute', right: 8, bottom: 56,
-                  display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center'
+                  display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center'
                 }}>
+                  {/* Save button */}
+                  {onSave && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onSave(video) }}
+                      style={{
+                        width: 28, height: 28, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,88,12,0.8)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
+                      title="Save to Library"
+                    >
+                      <Bookmark size={12} color="white" />
+                    </button>
+                  )}
+                  {/* Download button */}
+                  {onDownload && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onDownload(video) }}
+                      style={{
+                        width: 28, height: 28, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.8)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
+                      title="Download"
+                    >
+                      <Download size={12} color="white" />
+                    </button>
+                  )}
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: 16 }}>&#10084;&#65039;</div>
                     <span style={{ color: 'white', fontSize: 9, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_likes)}</span>
@@ -257,12 +471,23 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
 }
 
 /* ── Trending panel (right side) ─────────────────────── */
-function TrendingPanel({ tab, onRemix }) {
+function TrendingPanel({ tab, onRemix, onSave, onDownload }) {
   const [activeIdx, setActiveIdx] = useState(2)
   const [activeView, setActiveView] = useState('trending')
   const [activeTag, setActiveTag] = useState(null)
+  const [slideIdxMap, setSlideIdxMap] = useState({})
+
+  // Reset carousel to index 0 when tab changes
+  useEffect(() => {
+    setActiveIdx(0)
+    setActiveTag(null)
+    setSlideIdxMap({})
+  }, [tab])
 
   const filtered = VIRAL_CONTENT.filter(v => {
+    // First filter by content type matching the active tab
+    if (v.contentType !== tab) return false
+    // Then apply tag filter on top
     if (activeTag) return v.tags?.includes(activeTag)
     return true
   })
@@ -271,12 +496,25 @@ function TrendingPanel({ tab, onRemix }) {
     setActiveIdx(i => (i + dir + filtered.length) % filtered.length)
   }
 
+  const handleSlideNav = (videoId, dirOrIdx, isAbsolute = false) => {
+    setSlideIdxMap(prev => {
+      const cur = prev[videoId] || 0
+      const video = filtered.find(v => v.id === videoId)
+      const maxIdx = (video?.slides?.length || 1) - 1
+      if (isAbsolute) {
+        return { ...prev, [videoId]: Math.max(0, Math.min(dirOrIdx, maxIdx)) }
+      }
+      const next = cur + dirOrIdx
+      return { ...prev, [videoId]: Math.max(0, Math.min(next, maxIdx)) }
+    })
+  }
+
   const currentVideo = filtered[activeIdx % filtered.length] || filtered[0]
   const currentTags = currentVideo?.tags || []
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* Sub tabs */}
+      {/* Sub tabs + nav arrows */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 12, alignItems: 'center', flexShrink: 0 }}>
         <button
           onClick={() => setActiveView('trending')}
@@ -303,8 +541,28 @@ function TrendingPanel({ tab, onRemix }) {
             transition: 'all 0.15s'
           }}
         >
-          <span style={{ fontSize: 13 }}>&#10003;</span> Preview
+          <span style={{ fontSize: 13 }}>&#9998;</span> Preview
         </button>
+        <div style={{ flex: 1 }} />
+        {/* Top nav arrows */}
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            width: 28, height: 28, borderRadius: '50%',
+            border: '1px solid #E5E7EB', background: 'white',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginRight: 6, fontSize: 14, color: '#374151'
+          }}
+        >‹</button>
+        <button
+          onClick={() => navigate(1)}
+          style={{
+            width: 28, height: 28, borderRadius: '50%',
+            border: '1px solid #E5E7EB', background: 'white',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, color: '#374151'
+          }}
+        >›</button>
       </div>
 
       {/* Tag pills for current video */}
@@ -337,6 +595,10 @@ function TrendingPanel({ tab, onRemix }) {
             activeIdx={activeIdx % filtered.length}
             onNavigate={navigate}
             onRemix={onRemix}
+            slideIdxMap={slideIdxMap}
+            onSlideNav={handleSlideNav}
+            onSave={onSave}
+            onDownload={onDownload}
           />
         </div>
       )}
@@ -361,8 +623,8 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
   const placeholders = {
     slideshow: 'What should this slideshow be about?',
     'wall-of-text': 'What should the wall of text caption be about?',
-    'video-hook': 'What should this video hook be about?',
-    'green-screen': 'What should this green screen meme be about?'
+    'video-hook': 'What should the hook caption be about?',
+    'green-screen': 'What should this meme be about?'
   }
 
   const trendingLabels = {
@@ -392,18 +654,18 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
 
       {/* Mode toggle */}
       <div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Mode</div>
-        <div style={{ display: 'flex', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
-          {[{ l: 'Create New', v: 'create' }, { l: 'Remix', v: 'remix' }].map(o => (
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>Mode</div>
+        <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
+          {[{ l: '⊕ Create New', v: 'create', icon: true }, { l: '⤭ Remix', v: 'remix', icon: true }].map(o => (
             <button
               key={o.v}
               onClick={() => onModeChange(o.v)}
               style={{
-                flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontSize: 12, fontWeight: 500,
-                background: currentMode === o.v ? (o.v === 'remix' ? '#EA580C' : 'white') : 'transparent',
-                color: currentMode === o.v ? (o.v === 'remix' ? 'white' : '#111827') : '#6B7280',
-                boxShadow: currentMode === o.v && o.v === 'create' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                flex: 1, padding: '10px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: currentMode === o.v ? 600 : 400,
+                background: currentMode === o.v ? 'white' : 'transparent',
+                color: currentMode === o.v ? '#111827' : '#6B7280',
+                boxShadow: currentMode === o.v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 transition: 'all 0.15s'
               }}
             >
@@ -415,15 +677,15 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
 
       {/* Mention business */}
       <div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Mention your business?</div>
-        <div style={{ display: 'flex', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>Mention your business?</div>
+        <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
           {[{ l: 'Yes', v: true }, { l: 'No', v: false }].map(o => (
             <button
               key={String(o.v)}
               onClick={() => setForm(f => ({ ...f, isBusiness: o.v }))}
               style={{
-                flex: 1, padding: '8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600,
+                flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: 14, fontWeight: 600,
                 background: form.isBusiness === o.v ? '#EA580C' : 'transparent',
                 color: form.isBusiness === o.v ? 'white' : '#6B7280',
                 transition: 'all 0.15s'
@@ -435,40 +697,10 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
         </div>
       </div>
 
-      {/* Trending reference with thumbnail */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 12px', background: '#F9FAFB', borderRadius: 10, border: '1px solid #E5E7EB'
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
-            {trendingLabels[tab] || 'Trending content'}
-          </span>
-          {selectedVideo && (
-            <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400 }}>
-              {selectedVideo.caption?.slice(0, 30)}{selectedVideo.caption?.length > 30 ? '...' : ''}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {displayThumb && (
-            <img
-              src={displayThumb}
-              alt=""
-              style={{ width: 28, height: 36, objectFit: 'cover', borderRadius: 4, border: selectedVideo ? '2px solid #EA580C' : 'none' }}
-            />
-          )}
-          <button style={{
-            padding: '4px 10px', borderRadius: 6, border: '1px solid #E5E7EB',
-            background: 'white', fontSize: 12, fontWeight: 500, color: '#374151', cursor: 'pointer'
-          }}>Change</button>
-        </div>
-      </div>
-
       {/* Prompt */}
       <div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
-          Prompt <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(Optional)</span>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
+          Prompt <span style={{ color: '#9CA3AF', fontWeight: 400, fontSize: 13 }}>(Optional)</span>
         </div>
         <textarea
           value={form.prompt}
@@ -496,12 +728,13 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
         })}
         disabled={loading}
         style={{
-          width: '100%', padding: '13px', borderRadius: 10, border: 'none',
-          background: loading ? '#F97316' : '#EA580C',
-          color: 'white', fontWeight: 700, fontSize: 14,
+          width: '100%', padding: '14px', borderRadius: 12, border: 'none',
+          background: loading ? '#FDBA74' : '#FB923C',
+          color: 'white', fontWeight: 700, fontSize: 15,
           cursor: loading ? 'not-allowed' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          transition: 'all 0.15s', boxShadow: loading ? 'none' : '0 2px 8px rgba(234,88,12,0.3)'
+          transition: 'all 0.15s',
+          marginTop: 8
         }}
       >
         {loading ? (
@@ -513,14 +746,18 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
             }} />
             Generating...
           </>
-        ) : 'Generate'}
+        ) : (
+          <>
+            <span style={{ fontSize: 16 }}>✂</span> Generate
+          </>
+        )}
       </button>
     </div>
   )
 }
 
 /* ── Slideshow preview ───────────────────────────────── */
-function SlideshowPreview({ data, onClear, onSave }) {
+function SlideshowPreview({ data, onClear, onSave, onDownload }) {
   const [idx, setIdx] = useState(0)
   const COLORS = ['#EA580C','#1a1a1a','#6366f1','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ef4444']
   const slide = data.slides?.[idx]
@@ -535,6 +772,11 @@ function SlideshowPreview({ data, onClear, onSave }) {
           <button onClick={onSave} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Save size={12} /> Save
           </button>
+          {onDownload && (
+            <button onClick={onDownload} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Download size={12} /> Download
+            </button>
+          )}
           <button onClick={onClear} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, color: '#6B7280' }}>Clear</button>
         </div>
       </div>
@@ -635,16 +877,37 @@ function TextPreview({ result, onClear }) {
         {content}
       </div>
 
-      <button
-        onClick={() => copy(content)}
-        style={{
-          marginTop: 10, width: '100%', padding: '9px', border: '1px solid #E5E7EB',
-          borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-          color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
-        }}
-      >
-        <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button
+          onClick={() => copy(content)}
+          style={{
+            flex: 1, padding: '9px', border: '1px solid #E5E7EB',
+            borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
+          }}
+        >
+          <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
+        </button>
+        <button
+          onClick={() => {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `${result.type}-content.txt`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            URL.revokeObjectURL(link.href)
+          }}
+          style={{
+            flex: 1, padding: '9px', border: '1px solid #E5E7EB',
+            borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
+          }}
+        >
+          <Download size={13} /> Download
+        </button>
+      </div>
     </div>
   )
 }
@@ -658,6 +921,19 @@ export default function Content() {
   const [mode, setMode] = useState('remix')
   const [selectedVideo, setSelectedVideo] = useState(null)
   const [themeBadge, setThemeBadge] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
+
+  const handleContentSave = async (video) => {
+    const res = await saveToLibrary(video)
+    showToast(res.message)
+  }
+
+  const handleContentDownload = async (video) => {
+    showToast('Downloading...')
+    await downloadContent(video)
+  }
 
   // Read URL params on mount: /content?videoId=X&theme=Y&mode=remix
   useEffect(() => {
@@ -776,17 +1052,40 @@ export default function Content() {
         {/* Right panel — trending carousel or result preview */}
         <div style={{ flex: 1, padding: '16px 20px 16px 16px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {isSlideshowResult ? (
-            <SlideshowPreview data={result.data} onClear={() => setResult(null)} onSave={handleSave} />
+            <SlideshowPreview data={result.data} onClear={() => setResult(null)} onSave={handleSave} onDownload={() => {
+              const slide = result.data?.slides?.[0]
+              if (slide?.bgImage) {
+                const link = document.createElement('a')
+                link.href = slide.bgImage
+                link.download = 'slideshow.jpg'
+                link.target = '_blank'
+                link.click()
+              }
+              showToast('Downloading slideshow...')
+            }} />
           ) : isTextResult ? (
             <TextPreview result={result} onClear={() => setResult(null)} />
           ) : (
-            <TrendingPanel tab={tab} onRemix={handleRemix} />
+            <TrendingPanel tab={tab} onRemix={handleRemix} onSave={handleContentSave} onDownload={handleContentDownload} />
           )}
         </div>
       </div>
 
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#111827', color: 'white', padding: '10px 24px', borderRadius: 12,
+          fontSize: 13, fontWeight: 600, zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          animation: 'fadeInUp 0.25s ease'
+        }}>
+          {toast}
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
       `}</style>
     </div>
   )
