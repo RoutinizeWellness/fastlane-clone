@@ -1,17 +1,37 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Settings, X, Check } from 'lucide-react'
 import { VIRAL_CONTENT, CONTENT_TAGS, fmtNum, getByType } from '../lib/viralContent'
 
 // Shuffle for variety
 const SHUFFLED = [...VIRAL_CONTENT].sort(() => Math.random() - 0.5)
 
+// Theme/niche options for the remix modal
+const THEMES = [
+  { id: 'b2b-saas', label: 'B2B SaaS', emoji: '🏢', bg: '#EEF2FF', border: '#818CF8' },
+  { id: 'b2c-app', label: 'B2C App', emoji: '📱', bg: '#F0FDF4', border: '#4ADE80' },
+  { id: 'ecommerce', label: 'E-Commerce', emoji: '🛒', bg: '#FFF7ED', border: '#FB923C' },
+  { id: 'fitness', label: 'Fitness', emoji: '💪', bg: '#FEF2F2', border: '#F87171' },
+  { id: 'finance', label: 'Finance', emoji: '💰', bg: '#ECFDF5', border: '#34D399' },
+  { id: 'self-improvement', label: 'Self Improvement', emoji: '🧠', bg: '#FAF5FF', border: '#C084FC' },
+  { id: 'beauty', label: 'Beauty', emoji: '💄', bg: '#FDF2F8', border: '#F472B6' },
+  { id: 'health', label: 'Health', emoji: '🩺', bg: '#F0FDFA', border: '#2DD4BF' },
+  { id: 'productivity', label: 'Productivity', emoji: '⚡', bg: '#FFFBEB', border: '#FBBF24' },
+  { id: 'course-digital', label: 'Course/Digital Product', emoji: '🎓', bg: '#EFF6FF', border: '#60A5FA' },
+  { id: 'personal-brand', label: 'Personal Brand', emoji: '🌟', bg: '#FEF9C3', border: '#FACC15' },
+  { id: 'spirituality', label: 'Spirituality', emoji: '🕊️', bg: '#F5F3FF', border: '#A78BFA' },
+]
+
 export default function Blitz() {
+  const navigate = useNavigate()
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
   const [activeTag, setActiveTag] = useState(null)
   const [activeType, setActiveType] = useState(null)
+  const [modalVideo, setModalVideo] = useState(null)
+  const [selectedTheme, setSelectedTheme] = useState(null)
+  const [modalVisible, setModalVisible] = useState(false)
   const timerRef = useRef(null)
 
   const allCards = activeTag
@@ -37,6 +57,22 @@ export default function Blitz() {
     if (!paused) timerRef.current = setInterval(() => setIdx(i => (i + 1) % cards.length), 5000)
   }
 
+  const openRemixModal = (video) => {
+    setModalVideo(video)
+    setSelectedTheme(null)
+    setModalVisible(true)
+  }
+
+  const closeModal = () => {
+    setModalVisible(false)
+    setTimeout(() => setModalVideo(null), 200)
+  }
+
+  const handleContinue = () => {
+    if (!selectedTheme || !modalVideo) return
+    navigate(`/content?videoId=${modalVideo.id}&theme=${selectedTheme}&mode=remix`)
+  }
+
   const TYPES = [
     { id: 'slideshow', label: 'Slideshow' },
     { id: 'wall-of-text', label: 'Wall of Text' },
@@ -47,7 +83,7 @@ export default function Blitz() {
   return (
     <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FAFAFA' }}>
 
-      {/* Top tag + type bar — exactly like Fastlane */}
+      {/* Top tag + type bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 24px', background: 'white', borderBottom: '1px solid rgba(229,231,235,0.6)', flexWrap: 'wrap' }}>
         {/* Type filter pill */}
         <div style={{ display: 'flex', background: '#F3F4F6', borderRadius: 9999, padding: 2, gap: 2 }}>
@@ -59,7 +95,7 @@ export default function Blitz() {
 
         <div style={{ width: 1, height: 16, background: '#E5E7EB' }} />
 
-        {/* Tag filters — exact real tags from Fastlane */}
+        {/* Tag filters */}
         {CONTENT_TAGS.slice(0, 6).map(t => (
           <button key={t.label} onClick={() => setActiveTag(activeTag === t.label ? null : t.label)} style={{
             padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
@@ -84,9 +120,9 @@ export default function Blitz() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', paddingBottom: 64 }}>
 
           {/* Left nav arrow */}
-          <button onClick={() => advance(-1)} style={{ position: 'absolute', left: 24, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'white', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: 20, color: '#374151', flexShrink: 0 }}>‹</button>
+          <button onClick={() => advance(-1)} style={{ position: 'absolute', left: 24, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'white', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: 20, color: '#374151', flexShrink: 0 }}>&#8249;</button>
 
-          {/* 3-card stack — EXACT Fastlane layout */}
+          {/* 3-card stack */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, position: 'relative' }}>
 
             {/* LEFT card */}
@@ -98,19 +134,19 @@ export default function Blitz() {
               num_views: cur.remixedFrom.num_views,
               isRemixSource: true,
               username: cur.remixedFrom.username,
-            } : prev} size="sm" label={cur.remixedFrom ? "Remixed From" : null} onClick={() => advance(-1)} />
+            } : prev} size="sm" label={cur.remixedFrom ? "Remixed From" : null} onClick={() => advance(-1)} onRemix={openRemixModal} />
 
             {/* CENTER card (MAIN) */}
-            <BlitzCard video={cur} size="lg" active />
+            <BlitzCard video={cur} size="lg" active onRemix={openRemixModal} />
 
             {/* RIGHT card */}
-            <BlitzCard video={next} size="sm" onClick={() => advance(1)} />
+            <BlitzCard video={next} size="sm" onClick={() => advance(1)} onRemix={openRemixModal} />
           </div>
 
           {/* Right nav arrow */}
-          <button onClick={() => advance(1)} style={{ position: 'absolute', right: 24, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'white', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: 20, color: '#374151', flexShrink: 0 }}>›</button>
+          <button onClick={() => advance(1)} style={{ position: 'absolute', right: 24, zIndex: 10, width: 36, height: 36, borderRadius: '50%', background: 'white', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: 20, color: '#374151', flexShrink: 0 }}>&#8250;</button>
 
-          {/* Bottom action buttons — EXACT like Fastlane */}
+          {/* Bottom action buttons */}
           <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 16 }}>
             <button onClick={() => advance(1)} style={{ width: 48, height: 48, borderRadius: '50%', background: 'white', border: '1px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
               <X size={20} color="#374151" />
@@ -118,7 +154,7 @@ export default function Blitz() {
             <Link to="/content" style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 9999, padding: '10px 20px', fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
               ✏️ Edit
             </Link>
-            <button onClick={() => advance(1)} style={{ width: 48, height: 48, borderRadius: '50%', background: '#10B981', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.4)' }}>
+            <button onClick={() => openRemixModal(cur)} style={{ width: 48, height: 48, borderRadius: '50%', background: '#10B981', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(16,185,129,0.4)' }}>
               <Check size={22} color="white" />
             </button>
             <button onClick={() => setPaused(p => !p)} style={{ padding: '10px 16px', background: 'white', border: '1px solid #E5E7EB', borderRadius: 9999, fontSize: 12, color: '#6B7280', cursor: 'pointer', fontWeight: 500, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -168,12 +204,128 @@ export default function Blitz() {
           </div>
         )}
       </div>
+
+      {/* Theme Selector Modal */}
+      {modalVideo && (
+        <div
+          onClick={closeModal}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            opacity: modalVisible ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              background: 'white', borderRadius: 20, width: 520, maxHeight: '85vh',
+              overflow: 'auto', padding: '28px 28px 24px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+              transform: modalVisible ? 'scale(1)' : 'scale(0.95)',
+              opacity: modalVisible ? 1 : 0,
+              transition: 'all 0.25s ease',
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={closeModal}
+              style={{
+                position: 'absolute', top: 16, right: 16,
+                width: 32, height: 32, borderRadius: '50%',
+                background: '#F3F4F6', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={16} color="#6B7280" />
+            </button>
+
+            {/* Selected video preview */}
+            <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
+              <div style={{
+                width: 72, height: 128, borderRadius: 12, overflow: 'hidden',
+                flexShrink: 0, background: '#111',
+              }}>
+                <img
+                  src={modalVideo.thumbnail}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 6 }}>
+                  Remix this video
+                </div>
+                <p style={{
+                  fontSize: 13, color: '#6B7280', lineHeight: 1.5, margin: 0,
+                  display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {modalVideo.caption}
+                </p>
+              </div>
+            </div>
+
+            {/* Theme label */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12 }}>
+              Choose your theme / niche
+            </div>
+
+            {/* Theme grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
+              {THEMES.map(t => {
+                const isSelected = selectedTheme === t.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTheme(t.id)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      gap: 6, padding: '14px 8px', borderRadius: 14,
+                      background: isSelected ? t.bg : '#FAFAFA',
+                      border: isSelected ? `2px solid ${t.border}` : '2px solid transparent',
+                      boxShadow: isSelected ? `0 0 0 3px ${t.border}33` : 'none',
+                      cursor: 'pointer', transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ fontSize: 22 }}>{t.emoji}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: isSelected ? '#111827' : '#6B7280',
+                      textAlign: 'center', lineHeight: 1.3,
+                    }}>
+                      {t.label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Continue button */}
+            <button
+              onClick={handleContinue}
+              disabled={!selectedTheme}
+              style={{
+                width: '100%', padding: '13px 0', borderRadius: 12,
+                border: 'none', cursor: selectedTheme ? 'pointer' : 'not-allowed',
+                background: selectedTheme ? '#111827' : '#E5E7EB',
+                color: selectedTheme ? 'white' : '#9CA3AF',
+                fontSize: 14, fontWeight: 700,
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Continue with this theme →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── BlitzCard: renders a TikTok card (sm or lg) ────────────────
-function BlitzCard({ video, size = 'sm', active = false, label = null, onClick }) {
+// BlitzCard component
+function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, onRemix }) {
   if (!video) return null
   const isLg = size === 'lg'
   const W = isLg ? 230 : 155
@@ -234,26 +386,27 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick }
       {isLg && (
         <div style={{ position: 'absolute', right: 8, bottom: 60, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 2 }}>❤️</div>
+            <div style={{ width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 2 }}>&#10084;&#65039;</div>
             <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>{fmtNum(video.num_likes)}</span>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 2 }}>👁</div>
+            <div style={{ width: 34, height: 34, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 2 }}>&#128065;</div>
             <span style={{ color: 'white', fontSize: 10, fontWeight: 700 }}>{fmtNum(video.num_views)}</span>
           </div>
         </div>
       )}
 
-      {/* Remix button */}
+      {/* Remix button — calls onRemix callback instead of navigating */}
       <div style={{ position: 'absolute', bottom: isLg ? 10 : 6, left: '50%', transform: 'translateX(-50%)' }}>
-        <Link to="/content" onClick={e => e.stopPropagation()} style={{
+        <button onClick={e => { e.stopPropagation(); onRemix && onRemix(video); }} style={{
           display: 'flex', alignItems: 'center', gap: 4,
           background: isLg ? 'rgba(17,17,17,0.92)' : 'rgba(17,17,17,0.85)',
           borderRadius: 9999, padding: isLg ? '7px 14px' : '4px 10px',
-          color: 'white', fontSize: isLg ? 12 : 10, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap'
+          color: 'white', fontSize: isLg ? 12 : 10, fontWeight: 700,
+          border: 'none', cursor: 'pointer', whiteSpace: 'nowrap'
         }}>
-          🔄 Remix this
-        </Link>
+          &#128260; Remix this
+        </button>
       </div>
 
       {/* Dot indicators (large only) */}

@@ -10,6 +10,8 @@ import Blitz from './pages/Blitz'
 import Library from './pages/Library'
 import Calendar from './pages/Calendar'
 import Analytics from './pages/Analytics'
+import Trending from './pages/Trending'
+import UGC from './pages/UGC'
 import Engagement from './pages/Engagement'
 import Brand from './pages/Brand'
 import Settings from './pages/Settings'
@@ -34,6 +36,8 @@ export default function App() {
           <Route path="library" element={<Library />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="trending" element={<Trending />} />
+          <Route path="ugc" element={<UGC />} />
           <Route path="engagement" element={<Engagement />} />
           <Route path="brand" element={<Brand />} />
           <Route path="settings" element={<Settings />} />

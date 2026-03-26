@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save } from 'lucide-react'
 import api from '../lib/api'
 import { VIRAL_CONTENT, CONTENT_TAGS } from '../lib/viralContent'
@@ -7,7 +8,7 @@ import { formatNumber } from '../lib/utils'
 const TABS = [
   { id: 'slideshow', label: 'Slideshow', path: 'slideshow' },
   { id: 'wall-of-text', label: 'Wall of Text', path: 'wall-of-text' },
-  { id: 'video-hook', label: 'Video Hook & Demo', path: 'video-hook' },
+  { id: 'video-hook', label: 'Hook & Demo', path: 'video-hook' },
   { id: 'green-screen', label: 'Green Screen Meme', path: 'green-screen' },
 ]
 
@@ -26,8 +27,8 @@ const TAG_COLORS = {
   'Course/Digital Product': { bg: '#FFF7ED', text: '#C2410C' },
 }
 
-// 3D stacked carousel — like Fastlane's real carousel
-function VideoCarousel({ videos, activeIdx, onNavigate }) {
+/* ── 3D stacked carousel ─────────────────────────────── */
+function VideoCarousel({ videos, activeIdx, onNavigate, onRemix }) {
   const prev2 = videos[(activeIdx - 2 + videos.length) % videos.length]
   const prev1 = videos[(activeIdx - 1 + videos.length) % videos.length]
   const current = videos[activeIdx]
@@ -59,7 +60,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
       </button>
 
       {/* Cards — perspective container */}
-      <div style={{ position: 'relative', width: 500, height: 400, perspective: '800px' }}>
+      <div style={{ position: 'relative', width: 500, height: 400, perspective: '1000px' }}>
         {cards.map(({ video, offset, scale, z, opacity, rotate }, i) => {
           if (!video) return null
           const isCenter = offset === 0
@@ -75,7 +76,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
                 left: '50%',
                 width: 195,
                 aspectRatio: '9/16',
-                transform: `translate(-50%, -50%) translateX(${xPx}px) scale(${scale}) rotateY(${rotate}deg)`,
+                transform: `translate(-50%, -50%) translateX(${xPx}px) translateZ(${isCenter ? 40 : 0}px) scale(${scale}) rotateY(${rotate}deg)`,
                 transformOrigin: 'center center',
                 zIndex: z + (isCenter ? 10 : 0),
                 opacity,
@@ -83,8 +84,9 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
                 overflow: 'hidden',
                 background: '#111',
                 cursor: isCenter ? 'default' : 'pointer',
-                transition: 'all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                boxShadow: isCenter ? '0 16px 48px rgba(0,0,0,0.5)' : 'none',
+                transition: 'all 0.45s cubic-bezier(0.23, 1, 0.32, 1)',
+                boxShadow: isCenter ? '0 16px 48px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.2)',
+                willChange: 'transform, opacity',
               }}
             >
               {video.videoUrl && (
@@ -149,11 +151,11 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
                   display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center'
                 }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16 }}>❤️</div>
+                    <div style={{ fontSize: 16 }}>&#10084;&#65039;</div>
                     <span style={{ color: 'white', fontSize: 9, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_likes)}</span>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16 }}>👁</div>
+                    <div style={{ fontSize: 16 }}>&#128065;</div>
                     <span style={{ color: 'white', fontSize: 9, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_views)}</span>
                   </div>
                 </div>
@@ -163,11 +165,11 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
               {!isCenter && Math.abs(offset) === 1 && (
                 <div style={{ position: 'absolute', right: 6, bottom: 44, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12 }}>❤️</div>
+                    <div style={{ fontSize: 12 }}>&#10084;&#65039;</div>
                     <span style={{ color: 'white', fontSize: 8, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_likes)}</span>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12 }}>👁</div>
+                    <div style={{ fontSize: 12 }}>&#128065;</div>
                     <span style={{ color: 'white', fontSize: 8, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_views)}</span>
                   </div>
                 </div>
@@ -176,13 +178,19 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
               {/* Remix btn (center) */}
               {isCenter && (
                 <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)' }}>
-                  <button style={{
-                    background: 'linear-gradient(135deg, #EA580C, #F97316)',
-                    border: 'none', borderRadius: 9999, padding: '5px 14px',
-                    color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(234,88,12,0.5)'
-                  }}>
-                    🔄 Remix this
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemix && onRemix(video) }}
+                    style={{
+                      background: 'linear-gradient(135deg, #EA580C, #F97316)',
+                      border: 'none', borderRadius: 9999, padding: '5px 14px',
+                      color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 8px rgba(234,88,12,0.5)',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(234,88,12,0.6)' }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(234,88,12,0.5)' }}
+                  >
+                    Remix this
                   </button>
                 </div>
               )}
@@ -190,11 +198,17 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
               {/* Remix btn (adjacent) */}
               {!isCenter && Math.abs(offset) === 1 && (
                 <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)' }}>
-                  <button style={{
-                    background: 'rgba(0,0,0,0.75)', border: 'none', borderRadius: 9999,
-                    padding: '3px 10px', color: 'white', fontSize: 9, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
-                  }}>
-                    🔄 Remix this
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRemix && onRemix(video) }}
+                    style={{
+                      background: 'rgba(0,0,0,0.75)', border: 'none', borderRadius: 9999,
+                      padding: '3px 10px', color: 'white', fontSize: 9, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,88,12,0.85)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.75)' }}
+                  >
+                    Remix this
                   </button>
                 </div>
               )}
@@ -242,8 +256,8 @@ function VideoCarousel({ videos, activeIdx, onNavigate }) {
   )
 }
 
-// Trending panel (right side)
-function TrendingPanel({ tab }) {
+/* ── Trending panel (right side) ─────────────────────── */
+function TrendingPanel({ tab, onRemix }) {
   const [activeIdx, setActiveIdx] = useState(2)
   const [activeView, setActiveView] = useState('trending')
   const [activeTag, setActiveTag] = useState(null)
@@ -275,7 +289,7 @@ function TrendingPanel({ tab }) {
             transition: 'all 0.15s'
           }}
         >
-          <span style={{ fontSize: 14 }}>🔥</span> Trending Content
+          <span style={{ fontSize: 14 }}>&#128293;</span> Trending Content
         </button>
         <div style={{ width: 1, height: 16, background: '#E5E7EB', margin: '0 4px' }} />
         <button
@@ -289,30 +303,40 @@ function TrendingPanel({ tab }) {
             transition: 'all 0.15s'
           }}
         >
-          <span style={{ fontSize: 13 }}>✓</span> Preview
+          <span style={{ fontSize: 13 }}>&#10003;</span> Preview
         </button>
       </div>
 
-      {/* Tag pills */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+      {/* Tag pills for current video */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0, minHeight: 26 }}>
         {currentTags.slice(0, 4).map(tag => {
           const colors = TAG_COLORS[tag] || { bg: '#F3F4F6', text: '#374151' }
+          const isActive = activeTag === tag
           return (
-            <span key={tag} style={{
-              padding: '2px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
-              background: colors.bg, color: colors.text
-            }}>{tag}</span>
+            <button
+              key={tag}
+              onClick={() => { setActiveTag(isActive ? null : tag); setActiveIdx(0) }}
+              style={{
+                padding: '3px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
+                background: isActive ? colors.text : colors.bg,
+                color: isActive ? 'white' : colors.text,
+                border: 'none', cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                transform: isActive ? 'scale(1.05)' : 'scale(1)',
+              }}
+            >{tag}</button>
           )
         })}
       </div>
 
-      {/* 3D Carousel — takes remaining space */}
+      {/* 3D Carousel */}
       {filtered.length > 0 && (
         <div style={{ flex: 1, minHeight: 0 }}>
           <VideoCarousel
             videos={filtered}
             activeIdx={activeIdx % filtered.length}
             onNavigate={navigate}
+            onRemix={onRemix}
           />
         </div>
       )}
@@ -320,9 +344,12 @@ function TrendingPanel({ tab }) {
   )
 }
 
-// Left form
-function ContentForm({ tab, onGenerate, loading, trendingThumb }) {
-  const [form, setForm] = useState({ isBusiness: true, prompt: '', mode: 'remix' })
+/* ── Left form ───────────────────────────────────────── */
+function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChange, themeBadge, selectedVideo }) {
+  const [form, setForm] = useState({ isBusiness: true, prompt: '' })
+
+  // Sync mode from parent
+  const currentMode = mode || 'remix'
 
   const typeMap = {
     slideshow: 'slideshow',
@@ -345,22 +372,38 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb }) {
     'green-screen': 'Trending meme',
   }
 
+  // Use selectedVideo thumbnail if available, otherwise fallback to trendingThumb
+  const displayThumb = selectedVideo?.thumbnail || trendingThumb
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Theme badge (from URL param) */}
+      {themeBadge && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '5px 12px', borderRadius: 9999, alignSelf: 'flex-start',
+          background: 'linear-gradient(135deg, #FFF7ED, #FEF3C7)',
+          border: '1px solid #FED7AA',
+        }}>
+          <span style={{ fontSize: 12 }}>&#127912;</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#C2410C' }}>{themeBadge}</span>
+        </div>
+      )}
+
       {/* Mode toggle */}
       <div>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Mode</div>
         <div style={{ display: 'flex', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
-          {[{ l: '⊕ Create New', v: 'create' }, { l: '🔄 Remix', v: 'remix' }].map(o => (
+          {[{ l: 'Create New', v: 'create' }, { l: 'Remix', v: 'remix' }].map(o => (
             <button
               key={o.v}
-              onClick={() => setForm(f => ({ ...f, mode: o.v }))}
+              onClick={() => onModeChange(o.v)}
               style={{
                 flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
                 fontSize: 12, fontWeight: 500,
-                background: form.mode === o.v ? (o.v === 'remix' ? '#EA580C' : 'white') : 'transparent',
-                color: form.mode === o.v ? (o.v === 'remix' ? 'white' : '#111827') : '#6B7280',
-                boxShadow: form.mode === o.v && o.v === 'create' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                background: currentMode === o.v ? (o.v === 'remix' ? '#EA580C' : 'white') : 'transparent',
+                color: currentMode === o.v ? (o.v === 'remix' ? 'white' : '#111827') : '#6B7280',
+                boxShadow: currentMode === o.v && o.v === 'create' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 transition: 'all 0.15s'
               }}
             >
@@ -397,15 +440,22 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 12px', background: '#F9FAFB', borderRadius: 10, border: '1px solid #E5E7EB'
       }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
-          {trendingLabels[tab] || 'Trending content'}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+            {trendingLabels[tab] || 'Trending content'}
+          </span>
+          {selectedVideo && (
+            <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400 }}>
+              {selectedVideo.caption?.slice(0, 30)}{selectedVideo.caption?.length > 30 ? '...' : ''}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {trendingThumb && (
+          {displayThumb && (
             <img
-              src={trendingThumb}
+              src={displayThumb}
               alt=""
-              style={{ width: 28, height: 36, objectFit: 'cover', borderRadius: 4 }}
+              style={{ width: 28, height: 36, objectFit: 'cover', borderRadius: 4, border: selectedVideo ? '2px solid #EA580C' : 'none' }}
             />
           )}
           <button style={{
@@ -434,14 +484,14 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb }) {
         />
       </div>
 
-      {/* Generate button */}
+      {/* Generate button — only generates content, no theme selector */}
       <button
         onClick={() => onGenerate({
           topic: form.prompt || 'viral content for my business',
           platform: 'tiktok',
           tone: 'engaging',
           type: typeMap[tab] || 'slideshow',
-          mode: form.mode,
+          mode: currentMode,
           isBusiness: form.isBusiness
         })}
         disabled={loading}
@@ -463,13 +513,13 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb }) {
             }} />
             Generating...
           </>
-        ) : '🔄 Generate'}
+        ) : 'Generate'}
       </button>
     </div>
   )
 }
 
-// Slideshow preview (after generation)
+/* ── Slideshow preview ───────────────────────────────── */
 function SlideshowPreview({ data, onClear, onSave }) {
   const [idx, setIdx] = useState(0)
   const COLORS = ['#EA580C','#1a1a1a','#6366f1','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ef4444']
@@ -535,14 +585,14 @@ function SlideshowPreview({ data, onClear, onSave }) {
       {/* Caption */}
       {slide.cta && (
         <div style={{ marginTop: 16, padding: '10px 16px', background: '#FFF7ED', borderRadius: 10, border: '1px solid #FED7AA', maxWidth: 280, width: '100%', textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: '#C2410C', fontWeight: 600 }}>💡 Add a CTA caption & hashtags before posting</span>
+          <span style={{ fontSize: 12, color: '#C2410C', fontWeight: 600 }}>Add a CTA caption and hashtags before posting</span>
         </div>
       )}
     </div>
   )
 }
 
-// Text result preview (Wall of Text / Video Hook / Green Screen)
+/* ── Text result preview ─────────────────────────────── */
 function TextPreview({ result, onClear }) {
   const [copied, setCopied] = useState(false)
   const copy = t => { navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 2000) }
@@ -593,18 +643,43 @@ function TextPreview({ result, onClear }) {
           color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
         }}
       >
-        <Copy size={13} /> {copied ? '✓ Copied!' : 'Copy'}
+        <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
       </button>
     </div>
   )
 }
 
+/* ── Main Content page ───────────────────────────────── */
 export default function Content() {
+  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState('slideshow')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState('remix')
+  const [selectedVideo, setSelectedVideo] = useState(null)
+  const [themeBadge, setThemeBadge] = useState(null)
 
-  // Get thumbnail for "Trending X" field — use first viral video of current tab type
+  // Read URL params on mount: /content?videoId=X&theme=Y&mode=remix
+  useEffect(() => {
+    const videoId = searchParams.get('videoId')
+    const theme = searchParams.get('theme')
+    const urlMode = searchParams.get('mode')
+
+    if (videoId) {
+      const found = VIRAL_CONTENT.find(v => String(v.id) === String(videoId))
+      if (found) {
+        setSelectedVideo(found)
+      }
+    }
+    if (theme) {
+      setThemeBadge(theme)
+    }
+    if (urlMode === 'remix') {
+      setMode('remix')
+    }
+  }, [searchParams])
+
+  // Get thumbnail for "Trending X" field
   const typeMap = { slideshow: 'slideshow', 'wall-of-text': 'walloftext', 'video-hook': 'videohook', 'green-screen': 'greenscreen' }
   const tabVids = VIRAL_CONTENT.filter(v => {
     const t = typeMap[tab]
@@ -612,6 +687,12 @@ export default function Content() {
     return true
   })
   const trendingThumb = tabVids[0]?.thumbnail
+
+  // Handle "Remix this" from carousel
+  const handleRemix = (video) => {
+    setSelectedVideo(video)
+    setMode('remix')
+  }
 
   const handleGenerate = async ({ topic, platform, tone, type }) => {
     setLoading(true); setResult(null)
@@ -647,7 +728,7 @@ export default function Content() {
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FAFAFA' }}>
 
-      {/* Top tabs — centered pill style like real Fastlane */}
+      {/* Top tabs */}
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'center',
         padding: '12px 24px', background: 'white',
@@ -680,7 +761,16 @@ export default function Content() {
           width: 300, background: 'white', borderRight: '1px solid rgba(229,231,235,0.8)',
           padding: '20px', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0
         }}>
-          <ContentForm tab={tab} onGenerate={handleGenerate} loading={loading} trendingThumb={trendingThumb} />
+          <ContentForm
+            tab={tab}
+            onGenerate={handleGenerate}
+            loading={loading}
+            trendingThumb={trendingThumb}
+            mode={mode}
+            onModeChange={setMode}
+            themeBadge={themeBadge}
+            selectedVideo={selectedVideo}
+          />
         </div>
 
         {/* Right panel — trending carousel or result preview */}
@@ -690,7 +780,7 @@ export default function Content() {
           ) : isTextResult ? (
             <TextPreview result={result} onClear={() => setResult(null)} />
           ) : (
-            <TrendingPanel tab={tab} />
+            <TrendingPanel tab={tab} onRemix={handleRemix} />
           )}
         </div>
       </div>

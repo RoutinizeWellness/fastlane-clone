@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Circle } from 'lucide-react'
 import api from '../lib/api'
 import { useStore } from '../store'
-import { formatNumber } from '../lib/utils'
+import { VIRAL_CONTENT, fmtNum } from '../lib/viralContent'
 
 // Trending card carousel (same style as Content/Blitz)
 function TrendingCard({ video, active }) {
@@ -30,8 +30,8 @@ function TrendingCard({ video, active }) {
               {video.caption || 'Trending content'}
             </div>
             <div style={{ display: 'flex', gap: 8, color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>
-              <span>❤️ {formatNumber(video.num_likes || 5500)}</span>
-              <span>👁 {formatNumber(video.num_views || 261000)}</span>
+              <span>❤️ {fmtNum(video.num_likes || 5500)}</span>
+              <span>👁 {fmtNum(video.num_views || 261000)}</span>
             </div>
           </>
         )}
@@ -54,24 +54,31 @@ function TrendingCard({ video, active }) {
 export default function Home() {
   const { user } = useStore()
   const [trending, setTrending] = useState([])
-  const [trendIdx, setTrendIdx] = useState(1)
+  const [trendIdx, setTrendIdx] = useState(2)
   const [loading, setLoading] = useState(true)
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   // Quickstart steps
   const steps = [
     { label: 'Swipe content in Blitz', done: true },
     { label: 'Connect your account', done: true },
+    { label: 'Create your first content', done: false, action: true },
+    { label: 'Schedule a post', done: false, action: true },
     { label: 'Upload a demo video', done: false, action: true },
-    { label: 'Make your first post', done: true },
+    { label: 'Make your first post', done: false },
   ]
   const doneCount = steps.filter(s => s.done).length
 
+  // Fetch trending from API, fallback to VIRAL_CONTENT
   useEffect(() => {
     api.get('/media/trending').then(r => {
       const vids = r.data.videos || []
-      setTrending(vids)
+      if (vids.length > 0) {
+        setTrending(vids)
+      } else {
+        setTrending(VIRAL_CONTENT.slice(0, 5))
+      }
+    }).catch(() => {
+      setTrending(VIRAL_CONTENT.slice(0, 5))
     }).finally(() => setLoading(false))
   }, [])
 
@@ -82,16 +89,31 @@ export default function Home() {
     return () => clearInterval(t)
   }, [trending.length])
 
+  // "What you can create" cards
+  const createCards = [
+    { emoji: '🖼️', label: 'Slideshow', tab: 'slideshow' },
+    { emoji: '📝', label: 'Wall of Text', tab: 'wall-of-text' },
+    { emoji: '🎬', label: 'Hook & Demo', tab: 'video-hook' },
+    { emoji: '🤪', label: 'Green Screen Meme', tab: 'green-screen' },
+  ]
+
+  // Quick Actions
+  const quickActions = [
+    { label: 'Start Blitz', to: '/blitz', emoji: '⚡' },
+    { label: 'Create Content', to: '/content', emoji: '✨' },
+    { label: 'View Trending', to: '/trending', emoji: '📈' },
+  ]
+
   return (
     <div style={{ maxWidth: 900, padding: '32px 32px' }} className="animate-fade-up">
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        {/* Fastlane logo big */}
+        {/* Fastlane F logo */}
         <svg width="40" height="28" viewBox="0 0 40 28" fill="none" style={{ marginBottom: 12 }}>
           <path d="M2 2h36v6H10v5h20v6H10v10H2V2z" fill="#111827"/>
         </svg>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px', margin: 0 }}>
-          Lets get your product seen.
+          Let's get your product seen.
         </h1>
       </div>
 
@@ -126,17 +148,18 @@ export default function Home() {
           </div>
         ))}
         <Link to="/content" style={{
-          display: 'block', marginTop: 16, width: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          marginTop: 16, width: '100%',
           background: '#EA580C', color: 'white', textDecoration: 'none',
           textAlign: 'center', fontWeight: 700, fontSize: 14,
           padding: '12px', borderRadius: 10
         }}>
-          Continue setup →
+          Continue setup <ArrowRight size={16} />
         </Link>
       </div>
 
       {/* Trending Content */}
-      <div>
+      <div style={{ marginBottom: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 18 }}>📈</span>
           <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Trending Content</h2>
@@ -147,7 +170,6 @@ export default function Home() {
           </div>
         ) : (
           <div style={{ position: 'relative', overflow: 'hidden' }}>
-            {/* Carousel with prev/next buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', overflow: 'visible' }}>
               {/* Left arrow */}
               <button onClick={() => setTrendIdx(i => Math.max(0, i-1))}
@@ -169,6 +191,60 @@ export default function Home() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* What you can create */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>🎨</span>
+          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>What you can create</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+          {createCards.map((card) => (
+            <Link key={card.tab} to={`/content?tab=${card.tab}`} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+              background: 'white', border: '1px solid rgba(229,231,235,0.8)',
+              borderRadius: 14, padding: '20px 12px',
+              textDecoration: 'none', color: '#111827',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              cursor: 'pointer'
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)' }}
+            >
+              <span style={{ fontSize: 28 }}>{card.emoji}</span>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{card.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>🚀</span>
+          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Quick Actions</h2>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {quickActions.map((action) => (
+            <Link key={action.to} to={action.to} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: '#111827', color: 'white',
+              borderRadius: 10, padding: '12px 20px',
+              textDecoration: 'none', fontWeight: 700, fontSize: 14,
+              transition: 'background 0.2s',
+              cursor: 'pointer'
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = '#EA580C'}
+              onMouseLeave={e => e.currentTarget.style.background = '#111827'}
+            >
+              <span>{action.emoji}</span>
+              {action.label}
+              <ArrowRight size={14} />
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
