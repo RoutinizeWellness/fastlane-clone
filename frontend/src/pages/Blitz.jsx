@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Settings, X, Check, Bookmark, Download } from 'lucide-react'
 import { VIRAL_CONTENT, CONTENT_TAGS, fmtNum, getByType } from '../lib/viralContent'
-import { saveToLibrary, downloadContent } from '../lib/contentActions'
+import { saveToLibrary, downloadContent, bookmarkContent } from '../lib/contentActions'
 
 // Shuffle for variety
 const SHUFFLED = [...VIRAL_CONTENT].sort(() => Math.random() - 0.5)
@@ -40,6 +40,7 @@ export default function Blitz() {
 
   const handleSave = async (video) => {
     const res = await saveToLibrary(video)
+    bookmarkContent(video)
     showToast(res.message)
   }
 

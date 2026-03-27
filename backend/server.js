@@ -16,6 +16,7 @@ app.use('/api/generate', require('./routes/content'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/library', require('./routes/library'));
+app.use('/api/posts', require('./routes/posts'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/engagement', require('./routes/engagement'));
 app.use('/api/brand', require('./routes/brand'));

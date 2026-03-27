@@ -104,3 +104,94 @@ function downloadText(text, filename) {
   document.body.removeChild(link)
   URL.revokeObjectURL(link.href)
 }
+
+/**
+ * Bookmark a content item (backend + localStorage fallback)
+ */
+export async function bookmarkContent(video) {
+  const payload = {
+    id: video.id,
+    contentType: video.contentType,
+    caption: video.caption,
+    thumbnail: video.thumbnail,
+    data: video,
+  }
+  try {
+    await api.post('/library/bookmark', payload)
+    return { ok: true, message: 'Bookmarked!' }
+  } catch {
+    const bookmarks = JSON.parse(localStorage.getItem('fl_bookmarks') || '[]')
+    if (!bookmarks.find(b => b.id === video.id)) {
+      bookmarks.unshift({ ...payload, created_at: new Date().toISOString() })
+      localStorage.setItem('fl_bookmarks', JSON.stringify(bookmarks))
+    }
+    return { ok: true, message: 'Bookmarked locally!' }
+  }
+}
+
+/**
+ * Remove a bookmark by content ID
+ */
+export async function removeBookmark(contentId) {
+  try {
+    await api.delete(`/library/bookmark/${contentId}`)
+    return { ok: true }
+  } catch {
+    const bookmarks = JSON.parse(localStorage.getItem('fl_bookmarks') || '[]')
+    const filtered = bookmarks.filter(b => b.id !== contentId)
+    localStorage.setItem('fl_bookmarks', JSON.stringify(filtered))
+    return { ok: true }
+  }
+}
+
+/**
+ * Get all bookmarks
+ */
+export async function getBookmarks() {
+  try {
+    const res = await api.get('/library/bookmarks')
+    return res.data.bookmarks || res.data || []
+  } catch {
+    return JSON.parse(localStorage.getItem('fl_bookmarks') || '[]')
+  }
+}
+
+/**
+ * Export a single content item (triggers file download)
+ */
+export async function exportContent(id) {
+  try {
+    const res = await api.get(`/library/export/${id}`, { responseType: 'blob' })
+    const blob = new Blob([res.data])
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `content-${id}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+    return { ok: true }
+  } catch {
+    return { ok: false, message: 'Export failed' }
+  }
+}
+
+/**
+ * Export all content (triggers file download)
+ */
+export async function exportAllContent() {
+  try {
+    const res = await api.get('/library/export-all', { responseType: 'blob' })
+    const blob = new Blob([res.data])
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = 'all-content-export.json'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+    return { ok: true }
+  } catch {
+    return { ok: false, message: 'Export failed' }
+  }
+}

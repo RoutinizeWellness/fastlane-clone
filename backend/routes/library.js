@@ -27,4 +27,39 @@ router.delete('/:id', auth, (req, res) => {
   res.json({ message: 'Deleted' });
 });
 
+router.post('/bookmark', auth, (req, res) => {
+  const { id, contentType, caption, thumbnail, data } = req.body;
+  try {
+    db.prepare('INSERT OR REPLACE INTO bookmarks (user_id, content_id, content_type, caption, thumbnail_url, content_data) VALUES (?, ?, ?, ?, ?, ?)').run(req.user.id, id, contentType || '', caption || '', thumbnail || '', JSON.stringify(data || {}));
+    res.json({ message: 'Bookmarked!' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/bookmarks', auth, (req, res) => {
+  const bookmarks = db.prepare('SELECT * FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  res.json({ bookmarks: bookmarks.map(b => ({ ...b, data: JSON.parse(b.content_data || '{}') })) });
+});
+
+router.delete('/bookmark/:contentId', auth, (req, res) => {
+  db.prepare('DELETE FROM bookmarks WHERE content_id = ? AND user_id = ?').run(req.params.contentId, req.user.id);
+  res.json({ message: 'Removed' });
+});
+
+router.get('/export/:id', auth, (req, res) => {
+  const item = db.prepare('SELECT * FROM content_library WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!item) return res.status(404).json({ error: 'Not found' });
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="content-${item.id}.json"`);
+  res.json({ ...item, content_json: JSON.parse(item.content_json) });
+});
+
+router.get('/export-all', auth, (req, res) => {
+  const items = db.prepare('SELECT * FROM content_library WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="all-content-export.json"');
+  res.json({ items: items.map(i => ({ ...i, content_json: JSON.parse(i.content_json) })) });
+});
+
 module.exports = router;

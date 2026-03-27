@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Download } from 'lucide-react'
 import api from '../lib/api'
 import { formatDate } from '../lib/utils'
 import { VIRAL_CONTENT } from '../lib/viralContent'
+import { getBookmarks, removeBookmark, exportContent, exportAllContent } from '../lib/contentActions'
 
 const TYPE_LABEL = { slideshow: 'Slideshow', walloftext: 'Wall of Text', videohook: 'Video Hook', greenscreen: 'Green Screen' }
 
@@ -20,30 +21,53 @@ const MOCK_LIBRARY = VIRAL_CONTENT.map(v => ({
 export default function Library() {
   const [items, setItems] = useState([])
   const [dbItems, setDbItems] = useState([])
-  const [view, setView] = useState('my-content') // my-posts | my-content
+  const [bookmarks, setBookmarks] = useState([])
+  const [view, setView] = useState('my-content') // my-posts | my-content | bookmarks
   const [filterType, setFilterType] = useState('all')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     api.get('/library').then(r => setDbItems(r.data.items || [])).finally(() => setLoading(false))
+    getBookmarks().then(b => setBookmarks(b))
   }, [])
 
   useEffect(() => {
-    const combined = [...dbItems, ...MOCK_LIBRARY]
-    const filtered = filterType === 'all' ? combined : combined.filter(i => i.type === filterType)
-    setItems(filtered)
-  }, [filterType, dbItems])
+    if (view === 'bookmarks') {
+      const filtered = filterType === 'all' ? bookmarks : bookmarks.filter(i => i.contentType === filterType || i.type === filterType)
+      setItems(filtered)
+    } else {
+      const combined = [...dbItems, ...MOCK_LIBRARY]
+      const filtered = filterType === 'all' ? combined : combined.filter(i => i.type === filterType)
+      setItems(filtered)
+    }
+  }, [filterType, dbItems, view, bookmarks])
 
   const remove = async (id) => {
-    if (id > 10) { await api.delete(`/library/${id}`); setDbItems(prev => prev.filter(i => i.id !== id)) }
-    else setItems(prev => prev.filter(i => i.id !== id))
+    if (view === 'bookmarks') {
+      await removeBookmark(id)
+      setBookmarks(prev => prev.filter(i => i.id !== id))
+    } else if (id > 10) {
+      await api.delete(`/library/${id}`)
+      setDbItems(prev => prev.filter(i => i.id !== id))
+    } else {
+      setItems(prev => prev.filter(i => i.id !== id))
+    }
+  }
+
+  const handleExportAll = async () => {
+    await exportAllContent()
+  }
+
+  const handleExport = async (e, id) => {
+    e.stopPropagation()
+    await exportContent(id)
   }
 
   return (
     <div style={{ padding: '24px 28px' }} className="animate-fade-up">
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
-        {[{v:'my-posts',l:'My Posts'},{v:'my-content',l:'My Content'}].map(t => (
+        {[{v:'my-posts',l:'My Posts'},{v:'my-content',l:'My Content'},{v:'bookmarks',l:'Bookmarks'}].map(t => (
           <button key={t.v} onClick={() => setView(t.v)} style={{
             padding: '8px 16px', borderRadius: 9999, border: '1px solid',
             borderColor: view === t.v ? 'transparent' : '#E5E7EB',
@@ -53,7 +77,14 @@ export default function Library() {
           }}>{t.l}</button>
         ))}
         {/* Type filter */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
+          <button onClick={handleExportAll} style={{
+            padding: '6px 14px', border: '1px solid #E5E7EB', borderRadius: 8,
+            fontSize: 13, color: '#374151', background: 'white', cursor: 'pointer',
+            fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            <Download size={14} /> Export All
+          </button>
           <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '6px 12px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, color: '#374151', background: 'white', cursor: 'pointer' }}>
             <option value="all">All Types</option>
             <option value="slideshow">Slideshow</option>
@@ -118,6 +149,12 @@ export default function Library() {
                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                 onMouseLeave={e => e.currentTarget.style.opacity = '0'}>
                 <Trash2 size={11} />
+              </button>
+              {/* Export / Download */}
+              <button onClick={(e) => handleExport(e, item.id)} style={{ position: 'absolute', top: 6, right: 34, width: 24, height: 24, borderRadius: '50%', background: 'rgba(59,130,246,0.85)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', opacity: 0 }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0'}>
+                <Download size={11} />
               </button>
             </div>
           ))}

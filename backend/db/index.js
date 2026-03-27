@@ -64,6 +64,33 @@ db.exec(`
     followers INTEGER DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    content_id INTEGER NOT NULL,
+    content_type TEXT,
+    caption TEXT,
+    thumbnail_url TEXT,
+    content_data TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(user_id, content_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    platform TEXT DEFAULT 'tiktok',
+    caption TEXT,
+    content_json TEXT,
+    thumbnail_url TEXT,
+    status TEXT DEFAULT 'draft',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 // Seed demo user
