@@ -5,12 +5,12 @@ import { formatDate } from '../lib/utils'
 import { VIRAL_CONTENT } from '../lib/viralContent'
 import { getBookmarks, removeBookmark, exportContent, exportAllContent } from '../lib/contentActions'
 
-const TYPE_LABEL = { slideshow: 'Slideshow', walloftext: 'Wall of Text', videohook: 'Video Hook', greenscreen: 'Green Screen' }
+const TYPE_LABEL = { slideshow: 'Slideshow', 'wall-of-text': 'Wall of Text', 'video-hook-and-demo': 'Video Hook', 'green-screen-meme': 'Green Screen' }
 
 // Mock content using REAL viral content from Fastlane
 const MOCK_LIBRARY = VIRAL_CONTENT.map(v => ({
   id: v.id,
-  type: v.contentType?.replace('-','') === 'walloftext' ? 'walloftext' : v.contentType?.replace('-','') || 'walloftext',
+  type: v.contentType || 'wall-of-text',
   platform: 'tiktok',
   title: v.caption,
   thumbnail: v.thumbnail,
@@ -88,9 +88,9 @@ export default function Library() {
           <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '6px 12px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, color: '#374151', background: 'white', cursor: 'pointer' }}>
             <option value="all">All Types</option>
             <option value="slideshow">Slideshow</option>
-            <option value="walloftext">Wall of Text</option>
-            <option value="videohook">Video Hook</option>
-            <option value="greenscreen">Green Screen</option>
+            <option value="wall-of-text">Wall of Text</option>
+            <option value="video-hook-and-demo">Video Hook</option>
+            <option value="green-screen-meme">Green Screen</option>
           </select>
         </div>
       </div>
@@ -119,12 +119,12 @@ export default function Library() {
                 <img src={item.thumbnail || item.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, background: `hsl(${item.id * 37}, 45%, 30%)` }}>
-                  {item.type === 'slideshow' ? '🎠' : item.type === 'walloftext' ? '📝' : item.type === 'videohook' ? '🎬' : '🟩'}
+                  {item.type === 'slideshow' ? '🎠' : item.type === 'wall-of-text' ? '📝' : item.type === 'video-hook-and-demo' ? '🎬' : '🟩'}
                 </div>
               )}
 
               {/* Caption for wall of text */}
-              {(item.type === 'walloftext' || item.type === 'wall-of-text') && (
+              {(item.type === 'wall-of-text') && (
                 <div style={{ position: 'absolute', inset: 0, padding: '40px 10px 10px', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <p style={{ color: 'white', fontSize: 11, fontWeight: 600, lineHeight: 1.45, textAlign: 'center', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>
                     {item.title}
@@ -139,7 +139,7 @@ export default function Library() {
                     {formatDate(item.created_at || new Date()).replace(', 2026','').replace(', 2025','')}
                   </span>
                   <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 9, fontWeight: 700, textTransform: 'capitalize' }}>
-                    {item.type?.replace('walloftext','Wall of Text').replace('slideshow','Slideshow').replace('videohook','Video Hook').replace('greenscreen','Green Screen')}
+                    {TYPE_LABEL[item.type] || item.type}
                   </span>
                 </div>
               </div>

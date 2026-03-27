@@ -303,14 +303,14 @@ HASHTAGS: #hashtag1 #hashtag2 #hashtag3`;
 
 async function generateBlitz({ topic, platforms, count, brandContext }) {
   const results = [];
-  const types = ['slideshow', 'walloftext', 'videohook', 'greenscreen'];
+  const types = ['slideshow', 'wall-of-text', 'video-hook-and-demo', 'green-screen-meme'];
   for (let i = 0; i < Math.min(count, platforms.length); i++) {
     const platform = platforms[i];
     const type = types[i % types.length];
     let content;
     if (type === 'slideshow') content = await generateSlideshow({ topic, platform, tone: 'engaging', brandContext });
-    else if (type === 'walloftext') content = await generateWallOfText({ topic, platform, brandContext });
-    else if (type === 'videohook') content = await generateVideoHook({ topic, platform, brandContext });
+    else if (type === 'wall-of-text') content = await generateWallOfText({ topic, platform, brandContext });
+    else if (type === 'video-hook-and-demo') content = await generateVideoHook({ topic, platform, brandContext });
     else content = await generateGreenScreen({ topic, platform, brandContext });
     results.push({ type, platform, content });
   }

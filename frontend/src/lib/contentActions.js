@@ -7,9 +7,9 @@ import api from './api'
 export async function saveToLibrary(video) {
   const typeMap = {
     'slideshow': 'slideshow',
-    'wall-of-text': 'walloftext',
-    'video-hook': 'videohook',
-    'green-screen': 'greenscreen',
+    'wall-of-text': 'wall-of-text',
+    'video-hook-and-demo': 'video-hook-and-demo',
+    'green-screen-meme': 'green-screen-meme',
   }
   const payload = {
     type: typeMap[video.contentType] || video.contentType || 'slideshow',
@@ -60,11 +60,11 @@ export async function downloadContent(video, slideIdx = 0) {
     // Download text content as .txt
     const text = video.textOverlay || video.caption || ''
     downloadText(text, `wall-of-text-${video.id}.txt`)
-  } else if (ct === 'video-hook') {
+  } else if (ct === 'video-hook-and-demo') {
     // Download hook script as .txt
     const text = [video.hookText, video.demoText, video.caption].filter(Boolean).join('\n\n---\n\n')
     downloadText(text, `video-hook-${video.id}.txt`)
-  } else if (ct === 'green-screen') {
+  } else if (ct === 'green-screen-meme') {
     // Download meme text + image
     const text = `TOP TEXT: ${video.topText || ''}\nBOTTOM TEXT: ${video.bottomText || ''}\n\nCaption: ${video.caption || ''}`
     downloadText(text, `green-screen-meme-${video.id}.txt`)

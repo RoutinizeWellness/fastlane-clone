@@ -9,8 +9,8 @@ import { saveToLibrary, downloadContent } from '../lib/contentActions'
 const TABS = [
   { id: 'slideshow', label: 'Slideshow', path: 'slideshow' },
   { id: 'wall-of-text', label: 'Wall of Text', path: 'wall-of-text' },
-  { id: 'video-hook', label: 'Video Hook & Demo', path: 'video-hook' },
-  { id: 'green-screen', label: 'Green Screen Meme', path: 'green-screen' },
+  { id: 'video-hook-and-demo', label: 'Video Hook & Demo', path: 'video-hook-and-demo' },
+  { id: 'green-screen-meme', label: 'Green Screen Meme', path: 'green-screen-meme' },
 ]
 
 const TAG_COLORS = {
@@ -209,7 +209,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                   )}
                 </div>
               )}
-              {isCenter && video.contentType === 'video-hook' && (
+              {isCenter && video.contentType === 'video-hook-and-demo' && (
                 <>
                   <div style={{
                     position: 'absolute', top: 10, left: 10, right: 10,
@@ -249,7 +249,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                   </div>
                 </>
               )}
-              {isCenter && video.contentType === 'green-screen' && (
+              {isCenter && video.contentType === 'green-screen-meme' && (
                 <>
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0,
@@ -284,7 +284,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                 </>
               )}
               {/* Fallback caption for center card with unknown/missing contentType */}
-              {isCenter && !['slideshow','wall-of-text','video-hook','green-screen'].includes(video.contentType) && (
+              {isCenter && !['slideshow','wall-of-text','video-hook-and-demo','green-screen-meme'].includes(video.contentType) && (
                 <div style={{
                   position: 'absolute', bottom: 0, left: 0, right: 0,
                   padding: '40px 12px 52px',
@@ -307,7 +307,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                   padding: '24px 8px 40px',
                   background: 'linear-gradient(transparent, rgba(0,0,0,0.7))'
                 }}>
-                  {video.contentType === 'video-hook' && (
+                  {video.contentType === 'video-hook-and-demo' && (
                     <span style={{
                       display: 'inline-block', marginBottom: 3,
                       padding: '1px 6px', borderRadius: 9999,
@@ -319,7 +319,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                   <p style={{
                     color: 'white', fontSize: 10, fontWeight: 700, lineHeight: 1.25,
                     margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    textTransform: video.contentType === 'green-screen' ? 'uppercase' : 'none'
+                    textTransform: video.contentType === 'green-screen-meme' ? 'uppercase' : 'none'
                   }}>
                     {video.caption}
                   </p>
@@ -615,23 +615,23 @@ function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChan
 
   const typeMap = {
     slideshow: 'slideshow',
-    'wall-of-text': 'walloftext',
-    'video-hook': 'videohook',
-    'green-screen': 'greenscreen'
+    'wall-of-text': 'wall-of-text',
+    'video-hook-and-demo': 'video-hook-and-demo',
+    'green-screen-meme': 'green-screen-meme'
   }
 
   const placeholders = {
     slideshow: 'What should this slideshow be about?',
     'wall-of-text': 'What should the wall of text caption be about?',
-    'video-hook': 'What should the hook caption be about?',
-    'green-screen': 'What should this meme be about?'
+    'video-hook-and-demo': 'What should the hook caption be about?',
+    'green-screen-meme': 'What should this meme be about?'
   }
 
   const trendingLabels = {
     slideshow: 'Trending slideshow',
     'wall-of-text': 'Trending wall of text',
-    'video-hook': 'Trending video hook',
-    'green-screen': 'Trending meme',
+    'video-hook-and-demo': 'Trending video hook',
+    'green-screen-meme': 'Trending meme',
   }
 
   // Use selectedVideo thumbnail if available, otherwise fallback to trendingThumb
@@ -839,7 +839,7 @@ function TextPreview({ result, onClear }) {
   const [copied, setCopied] = useState(false)
   const copy = t => { navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 2000) }
 
-  const labels = { walloftext: 'Generated Post', videohook: 'Video Script', greenscreen: 'Meme Content' }
+  const labels = { 'wall-of-text': 'Generated Post', 'video-hook-and-demo': 'Video Script', 'green-screen-meme': 'Meme Content' }
   const content = result.data?.content || ''
 
   return (
@@ -850,7 +850,7 @@ function TextPreview({ result, onClear }) {
       </div>
 
       {/* Preview pane */}
-      {result.type === 'greenscreen' && result.data?.bgVideo?.thumbnail && (
+      {result.type === 'green-screen-meme' && result.data?.bgVideo?.thumbnail && (
         <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 12, aspectRatio: '9/16', maxWidth: 200 }}>
           <img src={result.data.bgVideo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 12, textAlign: 'center' }}>
@@ -872,7 +872,7 @@ function TextPreview({ result, onClear }) {
         background: '#F9FAFB', borderRadius: 10, padding: '12px 14px',
         fontSize: 13, lineHeight: 1.7, color: '#111827', whiteSpace: 'pre-wrap',
         flex: 1, overflowY: 'auto', border: '1px solid #E5E7EB',
-        fontFamily: result.type === 'videohook' ? 'monospace' : 'inherit'
+        fontFamily: result.type === 'video-hook-and-demo' ? 'monospace' : 'inherit'
       }}>
         {content}
       </div>
@@ -956,7 +956,7 @@ export default function Content() {
   }, [searchParams])
 
   // Get thumbnail for "Trending X" field
-  const typeMap = { slideshow: 'slideshow', 'wall-of-text': 'walloftext', 'video-hook': 'videohook', 'green-screen': 'greenscreen' }
+  const typeMap = { slideshow: 'slideshow', 'wall-of-text': 'wall-of-text', 'video-hook-and-demo': 'video-hook-and-demo', 'green-screen-meme': 'green-screen-meme' }
   const tabVids = VIRAL_CONTENT.filter(v => {
     const t = typeMap[tab]
     if (t === 'slideshow') return v.contentType === 'slideshow' || !v.contentType
@@ -973,7 +973,7 @@ export default function Content() {
   const handleGenerate = async ({ topic, platform, tone, type }) => {
     setLoading(true); setResult(null)
     try {
-      const { data } = await api.post(`/generate/${type}`, { topic, platform, tone })
+      const { data } = await api.post(`/content/${type}`, { topic, platform, tone })
       setResult({ type, data })
     } catch {
       alert('Generation failed. Check your API keys.')
@@ -998,7 +998,7 @@ export default function Content() {
     }
   }
 
-  const isTextResult = result && ['walloftext','videohook','greenscreen'].includes(result.type)
+  const isTextResult = result && ['wall-of-text','video-hook-and-demo','green-screen-meme'].includes(result.type)
   const isSlideshowResult = result && result.type === 'slideshow' && result.data?.slides
 
   return (

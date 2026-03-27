@@ -28,7 +28,7 @@ router.post('/slideshow', auth, async (req, res) => {
   }
 });
 
-router.post('/walloftext', auth, async (req, res) => {
+router.post('/wall-of-text', auth, async (req, res) => {
   try {
     const { topic, platform, hookStyle } = req.body;
     const brandContext = getBrandContext(req.user.id);
@@ -39,7 +39,7 @@ router.post('/walloftext', auth, async (req, res) => {
   }
 });
 
-router.post('/videohook', auth, async (req, res) => {
+router.post('/video-hook-and-demo', auth, async (req, res) => {
   try {
     const { topic, platform, hookType } = req.body;
     const brandContext = getBrandContext(req.user.id);
@@ -50,7 +50,7 @@ router.post('/videohook', auth, async (req, res) => {
   }
 });
 
-router.post('/greenscreen', auth, async (req, res) => {
+router.post('/green-screen-meme', auth, async (req, res) => {
   try {
     const { topic, platform, trend } = req.body;
     const brandContext = getBrandContext(req.user.id);

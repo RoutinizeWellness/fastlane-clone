@@ -12,7 +12,7 @@ require('./db');
 
 // API Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/generate', require('./routes/content'));
+app.use('/api/content', require('./routes/content'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/library', require('./routes/library'));

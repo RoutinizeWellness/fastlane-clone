@@ -91,8 +91,8 @@ export default function Blitz() {
   const TYPES = [
     { id: 'slideshow', label: 'Slideshow' },
     { id: 'wall-of-text', label: 'Wall of Text' },
-    { id: 'video-hook', label: 'Video Hook' },
-    { id: 'green-screen', label: 'Green Screen' },
+    { id: 'video-hook-and-demo', label: 'Video Hook' },
+    { id: 'green-screen-meme', label: 'Green Screen' },
   ]
 
   return (
@@ -111,7 +111,7 @@ export default function Blitz() {
         {/* Current type label */}
         {cur && (
           <span style={{ padding: '4px 14px', borderRadius: 9999, background: '#F3F4F6', fontSize: 12, fontWeight: 600, color: '#374151' }}>
-            {cur.contentType === 'slideshow' ? 'Slideshow' : cur.contentType === 'wall-of-text' ? 'Wall of Text' : cur.contentType === 'video-hook' ? 'Video Hook & Demo' : cur.contentType === 'green-screen' ? 'Green Screen Meme' : 'Content'}
+            {cur.contentType === 'slideshow' ? 'Slideshow' : cur.contentType === 'wall-of-text' ? 'Wall of Text' : cur.contentType === 'video-hook-and-demo' ? 'Video Hook & Demo' : cur.contentType === 'green-screen-meme' ? 'Green Screen Meme' : 'Content'}
           </span>
         )}
 
@@ -504,7 +504,7 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
             </p>
           )}
         </div>
-      ) : video.contentType === 'video-hook' ? (
+      ) : video.contentType === 'video-hook-and-demo' ? (
         /* VIDEO HOOK: hook badge + caption at TOP with top gradient */
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', pointerEvents: 'none' }}>
           {/* HOOK badge */}
@@ -533,7 +533,7 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
             )}
           </div>
         </div>
-      ) : video.contentType === 'green-screen' ? (
+      ) : video.contentType === 'green-screen-meme' ? (
         /* GREEN SCREEN: meme-style text top + bottom, MEME badge */
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
           {/* MEME badge */}

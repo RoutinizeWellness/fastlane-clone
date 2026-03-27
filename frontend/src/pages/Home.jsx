@@ -93,8 +93,8 @@ export default function Home() {
   const createCards = [
     { emoji: '🖼️', label: 'Slideshow', tab: 'slideshow' },
     { emoji: '📝', label: 'Wall of Text', tab: 'wall-of-text' },
-    { emoji: '🎬', label: 'Hook & Demo', tab: 'video-hook' },
-    { emoji: '🤪', label: 'Green Screen Meme', tab: 'green-screen' },
+    { emoji: '🎬', label: 'Hook & Demo', tab: 'video-hook-and-demo' },
+    { emoji: '🤪', label: 'Green Screen Meme', tab: 'green-screen-meme' },
   ]
 
   // Quick Actions
