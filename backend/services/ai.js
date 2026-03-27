@@ -9,13 +9,13 @@ if (process.env.GROQ_API_KEY) {
 async function callAI(systemPrompt, userPrompt) {
   if (groq) {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.85,
-      max_tokens: 2000
+      max_tokens: 3000
     });
     return completion.choices[0].message.content;
   }
@@ -27,94 +27,112 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// --- MOCK SLIDESHOW SETS ---
-// placeholder: kept as factory functions so topic can be injected
-const MOCK_SLIDESHOWS = [
-  // ... filled below
-];
+function buildBrandLine(brandContext) {
+  if (!brandContext) return '';
+  const parts = [];
+  if (brandContext.brand_name) parts.push(`Brand: ${brandContext.brand_name}`);
+  if (brandContext.industry) parts.push(`Industry: ${brandContext.industry}`);
+  if (brandContext.description) parts.push(`About: ${brandContext.description}`);
+  if (brandContext.tone) parts.push(`Preferred tone: ${brandContext.tone}`);
+  if (brandContext.pillars) {
+    try {
+      const p = typeof brandContext.pillars === 'string' ? JSON.parse(brandContext.pillars) : brandContext.pillars;
+      if (Array.isArray(p)) parts.push(`Content pillars: ${p.join(', ')}`);
+    } catch {}
+  }
+  if (brandContext.audience) {
+    try {
+      const a = typeof brandContext.audience === 'string' ? JSON.parse(brandContext.audience) : brandContext.audience;
+      if (a && typeof a === 'object' && Object.keys(a).length > 0) parts.push(`Target audience: ${JSON.stringify(a)}`);
+    } catch {}
+  }
+  return parts.length ? `\n\nBRAND CONTEXT (personalize content to this brand):\n${parts.join('\n')}` : '';
+}
 
+// --- MOCK SLIDESHOW SETS ---
+// placeholder: filled below
 function buildMockSlideshows(topic) {
   return [
-    // 1 - Productivity
+    // 1 - SaaS founder sharing growth tips
     [
-      { slide: 1, title: '5 Productivity Hacks That Changed My Life', body: `I used to waste 4 hours a day before discovering these ${topic} principles. Here's the exact system I now use.`, emoji: '🔥' },
-      { slide: 2, title: 'Time-Block Everything', body: 'Assign every 30-min slot a task. No open-ended "work sessions." Your calendar is your boss now.', emoji: '📅' },
-      { slide: 3, title: 'The 2-Minute Rule', body: `If a task takes under 2 minutes, do it immediately. This alone cleared 60% of my ${topic} backlog.`, emoji: '⚡' },
-      { slide: 4, title: 'Batch Similar Tasks', body: 'Email at 10am and 3pm only. Content creation in one block. Context-switching is a productivity killer.', emoji: '🧠' },
-      { slide: 5, title: 'Energy > Time Management', body: `Track your energy peaks. Do ${topic} deep work during high-energy windows, admin during lulls.`, emoji: '💡' },
-      { slide: 6, title: 'Save This For Later! →', body: `Follow for daily ${topic} and productivity tips that actually work!`, emoji: '❤️', cta: true }
+      { slide: 1, title: 'things i wish i knew before starting my saas', body: `i burned through $40k before figuring out ${topic}. here's what actually moved the needle (not what twitter gurus told me).`, emoji: '🫠' },
+      { slide: 2, title: 'talk to users before writing code', body: `literally just DM 50 people in your niche. ask what they struggle with. i built 3 features nobody wanted bc i skipped this step with ${topic}.`, emoji: '💬' },
+      { slide: 3, title: 'charge from day one', body: `free users give you vanity metrics. paying users give you real feedback. even $9/mo filters out people who won't help you improve ${topic}.`, emoji: '💸' },
+      { slide: 4, title: 'your landing page matters more than your product', body: `spent 6 months on features, 2 hours on the landing page. conversion was 0.3%. rewrote the copy in one afternoon, jumped to 4.2%.`, emoji: '📝' },
+      { slide: 5, title: 'distribution > product every time', body: `the best ${topic} product with no distribution loses to a mid product with great distribution. build your audience while you build your thing.`, emoji: '📣' },
+      { slide: 6, title: 'save this if you\'re building something', body: `follow for more raw ${topic} startup lessons — no fluff, just stuff that actually worked for me`, emoji: '🔖', cta: true }
     ],
-    // 2 - Social Media Growth
+    // 2 - E-commerce brand tips
     [
-      { slide: 1, title: 'How I Gained 50K Followers in 90 Days', body: `No ads. No luck. Just a repeatable ${topic} system anyone can copy.`, emoji: '📈' },
-      { slide: 2, title: 'Post at Peak Hours', body: 'TikTok: 7-9am, 12pm, 7-9pm. Instagram: 11am-1pm, 7-9pm. LinkedIn: 7-8am Tues-Thurs. Timing is half the battle.', emoji: '⏰' },
-      { slide: 3, title: 'Hook in 1.5 Seconds', body: `Your first line determines everything. Use curiosity gaps, bold claims, or unexpected stats related to ${topic}.`, emoji: '🎣' },
-      { slide: 4, title: 'Engage Before You Post', body: 'Spend 15 minutes commenting on others\' posts before you publish. The algorithm notices reciprocity.', emoji: '💬' },
-      { slide: 5, title: 'Repurpose Ruthlessly', body: `One ${topic} video = 1 carousel + 1 text post + 3 tweets + 1 newsletter. Work smarter.`, emoji: '♻️' },
-      { slide: 6, title: 'Want More Growth Tips? →', body: `Follow me for daily ${topic} strategies that actually move the needle!`, emoji: '🚀', cta: true }
+      { slide: 1, title: 'how i went from 0 to $10k/mo selling online', body: `no dropshipping. no guru courses. just ${topic} fundamentals that nobody talks about bc they're not sexy.`, emoji: '📦' },
+      { slide: 2, title: 'stop running ads before you fix this', body: `your product photos are probably mid. i switched to UGC-style content for ${topic} and my ROAS went from 1.2x to 4.8x overnight.`, emoji: '📸' },
+      { slide: 3, title: 'email is still king tbh', body: `40% of my revenue comes from email. set up a welcome flow, abandoned cart, and post-purchase sequence. that's literally it for ${topic}.`, emoji: '📧' },
+      { slide: 4, title: 'the pricing trick that changed everything', body: `added a "most popular" tier at 2x my original price. suddenly the original felt like a steal. anchoring is real for ${topic}.`, emoji: '🏷️' },
+      { slide: 5, title: 'returns are a feature not a bug', body: `offered free returns, return rate only went up 2% but conversion jumped 23%. people just need to feel safe buying ${topic} stuff online.`, emoji: '🔄' },
+      { slide: 6, title: 'follow for more e-comm tips that actually work', body: `i share what's working in my ${topic} store every week — the real numbers, not the highlight reel`, emoji: '🛒', cta: true }
     ],
-    // 3 - Startup Tips
+    // 3 - Fitness app / coach
     [
-      { slide: 1, title: 'Startup Lessons That Cost Me $200K', body: `I made every mistake so you don't have to. Here are the ${topic} truths VCs won't tell you.`, emoji: '💸' },
-      { slide: 2, title: 'Talk to Users, Not Investors', body: `Your first 100 conversations should be with customers. ${topic} validation beats pitch decks every time.`, emoji: '🗣️' },
-      { slide: 3, title: 'Launch Ugly, Launch Fast', body: 'Your MVP should embarrass you slightly. If it doesn\'t, you waited too long. Speed > polish at this stage.', emoji: '🏃' },
-      { slide: 4, title: 'Revenue > Fundraising', body: `A dollar from a customer is worth more than $10 from an investor. Build ${topic} revenue from day one.`, emoji: '💰' },
-      { slide: 5, title: 'Hire Slow, Fire Fast', body: `One bad hire in a 5-person ${topic} startup can destroy your culture in weeks. Protect your team at all costs.`, emoji: '🛡️' },
-      { slide: 6, title: 'Building a Startup? Follow Me! →', body: `I share raw, unfiltered ${topic} startup advice daily. No fluff.`, emoji: '🔥', cta: true }
+      { slide: 1, title: 'things that actually helped me get in shape', body: `not a "fitness influencer" just someone who finally figured out ${topic} after years of overcomplicating it. here's what stuck.`, emoji: '💪' },
+      { slide: 2, title: 'protein is boring but non-negotiable', body: `stopped trying to hit macros perfectly. just made sure every meal had a palm-sized protein source. game changer for ${topic} results.`, emoji: '🍗' },
+      { slide: 3, title: 'walking > HIIT for most people', body: `i was doing intense workouts 6x/week and burning out. switched to lifting 3x + daily walks. better results, way more sustainable for ${topic}.`, emoji: '🚶' },
+      { slide: 4, title: 'sleep is literally a performance enhancer', body: `tracked my lifts on 6hrs vs 8hrs sleep. the difference was insane. your ${topic} gains happen in bed, not in the gym.`, emoji: '😴' },
+      { slide: 5, title: 'the best program is the one you actually do', body: `stop program hopping. pick something reasonable and do it for 12 weeks minimum. consistency with ${topic} beats optimization.`, emoji: '📋' },
+      { slide: 6, title: 'save this & send to someone who needs it', body: `follow for more no-bs ${topic} fitness content from someone who's still figuring it out too`, emoji: '❤️', cta: true }
     ],
-    // 4 - Fitness
+    // 4 - Beauty brand / skincare
     [
-      { slide: 1, title: 'The Fitness Routine That Actually Sticks', body: `Forget complicated plans. This simple ${topic} approach got me in the best shape of my life.`, emoji: '💪' },
-      { slide: 2, title: 'Progressive Overload is King', body: `Add 2.5lbs or 1 rep each week. Small gains compound. In 6 months of ${topic} training, you won't recognize yourself.`, emoji: '👑' },
-      { slide: 3, title: 'Protein at Every Meal', body: 'Aim for 0.8-1g per lb of bodyweight. Prioritize whole foods: eggs, chicken, fish, Greek yogurt, legumes.', emoji: '🥚' },
-      { slide: 4, title: 'Sleep is the Secret Weapon', body: `7-9 hours. Non-negotiable. Your ${topic} progress happens during recovery, not in the gym.`, emoji: '😴' },
-      { slide: 5, title: 'Track What You Measure', body: 'Use a simple notebook or app. Log weights, reps, bodyweight weekly. Data beats feelings every time.', emoji: '📊' },
-      { slide: 6, title: 'Want the Full Program? →', body: `Follow for daily ${topic} and fitness tips backed by science, not bro-science!`, emoji: '❤️', cta: true }
+      { slide: 1, title: 'skincare mistakes i made so you don\'t have to', body: `spent hundreds on ${topic} products before learning that most of my routine was actually making things worse. let me save you the money.`, emoji: '🧴' },
+      { slide: 2, title: 'you probably don\'t need 10 steps', body: `cleanser, moisturizer, SPF. that's it for most people starting out with ${topic}. add actives slowly or your skin will freak out (ask me how i know).`, emoji: '✨' },
+      { slide: 3, title: 'spf every single day no exceptions', body: `even if you're inside. even if it's cloudy. UV damage is the #1 cause of premature aging. this is the ${topic} hill i will die on.`, emoji: '☀️' },
+      { slide: 4, title: 'retinol changed my skin but start slow', body: `started with 0.025% twice a week. took 3 months to see results but my texture is completely different now with ${topic}.`, emoji: '🌙' },
+      { slide: 5, title: 'expensive ≠ better', body: `my holy grail moisturizer is $12. the $80 one did the exact same thing. don't let ${topic} marketing convince you otherwise.`, emoji: '💰' },
+      { slide: 6, title: 'follow for honest skincare content', body: `no sponsorships influencing my recs — just sharing what actually works for ${topic} after years of trial and error`, emoji: '🫶', cta: true }
     ],
-    // 5 - Personal Branding
+    // 5 - Finance / money tips
     [
-      { slide: 1, title: 'Your Personal Brand is Your Superpower', body: `In 2024, obscurity is a bigger risk than failure. Here's how to build a ${topic} brand that opens doors.`, emoji: '✨' },
-      { slide: 2, title: 'Pick One Platform, Go Deep', body: `Master one channel before expanding. 90 days of consistent ${topic} content on one platform beats scattered posting everywhere.`, emoji: '🎯' },
-      { slide: 3, title: 'Document, Don\'t Create', body: 'Share your journey, failures, and lessons. Authenticity outperforms polished content 10x in the long run.', emoji: '📱' },
-      { slide: 4, title: 'Your Bio = Your Billboard', body: `State WHO you help, WHAT you do, and WHY they should care. Keep it under 150 characters for ${topic} discoverability.`, emoji: '📝' },
-      { slide: 5, title: 'Collaborate Weekly', body: 'Go live with others. Guest on podcasts. Do collabs. Borrowed audiences accelerate growth faster than any algorithm hack.', emoji: '🤝' },
-      { slide: 6, title: 'Ready to Build Your Brand? →', body: `Follow for daily ${topic} personal branding strategies!`, emoji: '🚀', cta: true }
+      { slide: 1, title: 'money habits that actually built my savings', body: `not "stop buying lattes" advice. actual ${topic} systems that helped me save $30k in a year on a normal salary.`, emoji: '💵' },
+      { slide: 2, title: 'automate everything', body: `set up auto-transfers the day you get paid. if the money never hits your checking account, you don't miss it. ${topic} on autopilot.`, emoji: '🤖' },
+      { slide: 3, title: 'the 50/30/20 rule is a starting point not gospel', body: `adjust the ratios to your life. i do 60/20/20 bc my rent is high. the point is having ANY system for ${topic}.`, emoji: '📊' },
+      { slide: 4, title: 'high yield savings changed the game', body: `moved my emergency fund to a HYSA earning 5%. that's literally free money just sitting there. why did nobody tell me about this ${topic} trick sooner.`, emoji: '🏦' },
+      { slide: 5, title: 'invest boring, live exciting', body: `i just buy index funds every month and don't look at them. no meme stocks. no crypto gambling. boring ${topic} strategy, fun life.`, emoji: '📈' },
+      { slide: 6, title: 'save this for when you need a money reset', body: `follow for real ${topic} finance tips from someone who used to be terrible with money`, emoji: '🔖', cta: true }
     ],
-    // 6 - Investing
+    // 6 - Content creator tips
     [
-      { slide: 1, title: 'Investing 101: What I Wish I Knew at 20', body: `${topic} advice from someone who lost money first. These 5 principles would have saved me thousands.`, emoji: '📉' },
-      { slide: 2, title: 'Start With Index Funds', body: 'S&P 500 index funds have averaged ~10% annually for 100 years. Don\'t try to beat the market — join it.', emoji: '📊' },
-      { slide: 3, title: 'Emergency Fund First', body: `Before investing a single dollar in ${topic}, save 3-6 months of expenses. This prevents panic-selling during dips.`, emoji: '🏦' },
-      { slide: 4, title: 'Dollar-Cost Average', body: 'Invest the same amount every month regardless of market conditions. Time in the market beats timing the market.', emoji: '⏳' },
-      { slide: 5, title: 'Avoid Lifestyle Inflation', body: `When your income goes up, keep expenses flat. Invest the difference. This is the real ${topic} wealth hack.`, emoji: '🧠' },
-      { slide: 6, title: 'Want More Money Tips? →', body: `Follow for daily ${topic} and investing wisdom you can actually use!`, emoji: '💰', cta: true }
+      { slide: 1, title: 'how i actually come up with content ideas', body: `spoiler: it's not staring at a blank screen for 2 hours. here's my ${topic} system that gives me 30+ ideas in 20 minutes.`, emoji: '🧠' },
+      { slide: 2, title: 'screenshot everything', body: `comments, DMs, reddit threads, tweets that make you think. dump them all in a notes folder. that's your ${topic} content goldmine.`, emoji: '📱' },
+      { slide: 3, title: 'steal the structure not the content', body: `find a viral post in a completely different niche. use the same format/structure but apply it to ${topic}. this is how most viral posts are actually made.`, emoji: '🔄' },
+      { slide: 4, title: 'one idea = five posts minimum', body: `take one ${topic} concept. make it a carousel, a talking head video, a story, a meme, and a text post. that's a week of content from one idea.`, emoji: '♻️' },
+      { slide: 5, title: 'your flops teach you more than your wins', body: `go look at your worst performing ${topic} post. figure out why it flopped. that insight is worth more than any course.`, emoji: '📉' },
+      { slide: 6, title: 'follow for creator tips that aren\'t recycled', body: `sharing what actually works in ${topic} content creation — the real stuff, updated for what's working rn`, emoji: '🔥', cta: true }
     ],
-    // 7 - Content Creation
+    // 7 - Relationship / soft skills
     [
-      { slide: 1, title: 'The Content System That Posts Itself', body: `I create 30 days of ${topic} content in one afternoon. Here's the exact process.`, emoji: '🗓️' },
-      { slide: 2, title: 'Batch Film on Sundays', body: 'Record 8-10 videos in one session. Change shirts between takes. One setup, two hours, a month of content.', emoji: '🎬' },
-      { slide: 3, title: 'Use a Content Matrix', body: `4 pillars × 3 formats = 12 unique ${topic} ideas. Rotate weekly. You'll never run out of content.`, emoji: '🧩' },
-      { slide: 4, title: 'Repurpose Everything', body: 'Long video → short clips → carousel → text post → email → tweet thread. One idea, 6+ pieces of content.', emoji: '♻️' },
-      { slide: 5, title: 'Schedule & Forget', body: `Use scheduling tools to queue everything. Spend your week engaging, not stressing about ${topic} posting.`, emoji: '😌' },
-      { slide: 6, title: 'Steal My System! →', body: `Follow for more ${topic} content creation frameworks that save you hours!`, emoji: '🔥', cta: true }
+      { slide: 1, title: 'communication skills that lowkey saved my relationship', body: `not therapy advice. just ${topic} things i learned the hard way that made a huge difference in how we handle conflict.`, emoji: '💛' },
+      { slide: 2, title: 'validate before you problem-solve', body: `"that sounds really frustrating" hits different than "well have you tried..." most arguments aren't about finding a solution with ${topic}.`, emoji: '👂' },
+      { slide: 3, title: 'the repair attempt is everything', body: `it's not about never fighting. it's about how fast you can de-escalate. a well-timed joke or "can we start over" changes everything in ${topic}.`, emoji: '🤝' },
+      { slide: 4, title: 'say the thing you\'re afraid to say', body: `"i felt hurt when..." is scary to say but it prevents weeks of passive-aggressive energy. directness is kindness in ${topic}.`, emoji: '🗣️' },
+      { slide: 5, title: 'schedule the hard conversations', body: `don't ambush people. "hey can we talk about something tonight?" gives them time to prepare. way better outcomes for ${topic} topics.`, emoji: '📅' },
+      { slide: 6, title: 'send this to someone you care about', body: `follow for more ${topic} real talk about relationships and communication`, emoji: '💕', cta: true }
     ],
-    // 8 - Relationship Tips
+    // 8 - Side hustle / freelancing
     [
-      { slide: 1, title: '5 Communication Skills That Saved My Relationship', body: `Relationships fail from poor communication, not lack of love. These ${topic} principles changed everything.`, emoji: '❤️' },
-      { slide: 2, title: 'Listen to Understand, Not Reply', body: 'Put your phone down. Make eye contact. Repeat back what they said. Most arguments stem from feeling unheard.', emoji: '👂' },
-      { slide: 3, title: 'The 5:1 Ratio', body: `Research shows healthy relationships need 5 positive interactions for every negative one. Track your ${topic} ratio.`, emoji: '⚖️' },
-      { slide: 4, title: 'Schedule Quality Time', body: 'Weekly date nights aren\'t cheesy — they\'re essential. Put them in the calendar like any important meeting.', emoji: '📅' },
-      { slide: 5, title: 'Fight the Problem, Not Each Other', body: `Sit on the same side of the table (literally). Frame it as "us vs. the problem." This ${topic} mindset shift is powerful.`, emoji: '🤝' },
-      { slide: 6, title: 'Send This to Your Partner! →', body: `Follow for more ${topic} relationship and communication tips!`, emoji: '💕', cta: true }
+      { slide: 1, title: 'the side hustle that actually pays (not dropshipping)', body: `tried 6 different things before finding what works with ${topic}. most "passive income" advice is a scam. here's what isn't.`, emoji: '💼' },
+      { slide: 2, title: 'freelance the skill you already have', body: `you don't need to learn a new thing. whatever you do at your 9-5, someone will pay you directly for it. ${topic} freelancing is underrated.`, emoji: '💻' },
+      { slide: 3, title: 'your first client is always the hardest', body: `do one project at 50% of your target rate. get the testimonial. use it to land the next 5 at full price. ${topic} social proof > everything.`, emoji: '🎯' },
+      { slide: 4, title: 'productize your service', body: `don't sell "hours." sell a specific outcome at a fixed price. "i'll build your ${topic} landing page for $2k" > "$50/hour web dev."`, emoji: '📦' },
+      { slide: 5, title: 'reinvest before you lifestyle creep', body: `first $1k goes back into ${topic}. better tools, a course that's actually good, or hiring help. compound your side hustle like an investment.`, emoji: '📈' },
+      { slide: 6, title: 'follow if you\'re building on the side', body: `sharing my ${topic} side hustle journey — the real numbers and what's actually working`, emoji: '🚀', cta: true }
     ],
-    // 9 - Money / Side Hustle
+    // 9 - Mental health / self-improvement
     [
-      { slide: 1, title: 'Side Hustles That Actually Pay in 2024', body: `Forget dropshipping. These ${topic} income streams are proven, low-risk, and you can start tonight.`, emoji: '💵' },
-      { slide: 2, title: 'Freelance Your Existing Skills', body: `Copywriting, design, bookkeeping, coding — someone will pay you TODAY for skills you already have. Check Upwork and Fiverr.`, emoji: '💻' },
-      { slide: 3, title: 'Digital Products Scale', body: `Create once, sell forever. Templates, courses, ebooks — digital ${topic} products have near-zero marginal cost.`, emoji: '📦' },
-      { slide: 4, title: 'Content Monetization', body: 'Build an audience of 1,000 true fans. Sponsorships, affiliates, and your own offers can replace a full-time salary.', emoji: '🎙️' },
-      { slide: 5, title: 'Invest Your Side Income', body: `Don't spend side hustle money on lifestyle. Funnel 80% into investments. Let ${topic} compound do the heavy lifting.`, emoji: '📈' },
-      { slide: 6, title: 'Want the Full Breakdown? →', body: `Follow for daily ${topic} money and business tips!`, emoji: '🔥', cta: true }
+      { slide: 1, title: 'things that helped my mental health more than "just meditate"', body: `meditation is great but ${topic} taught me these were the actual game changers nobody talks about.`, emoji: '🧘' },
+      { slide: 2, title: 'morning phone-free hour', body: `first hour of the day, phone stays in another room. the difference in my anxiety levels was noticeable within a week of this ${topic} habit.`, emoji: '📵' },
+      { slide: 3, title: 'the brain dump before bed', body: `spend 5 min writing every thought down. doesn't need to make sense. just get it out of your head. sleep quality improved dramatically with ${topic}.`, emoji: '📝' },
+      { slide: 4, title: 'one hard conversation > months of journaling', body: `journaling helped me understand my feelings. but actually telling someone how i felt? that's where ${topic} real healing happened.`, emoji: '💬' },
+      { slide: 5, title: 'movement isn\'t about fitness', body: `i don't work out to look good. i work out bc 30 min of walking completely resets my brain. ${topic} mental health hack that costs $0.`, emoji: '🚶' },
+      { slide: 6, title: 'save this for a bad day', body: `follow for more ${topic} mental health content that's actually realistic and not toxic positivity`, emoji: '💛', cta: true }
     ]
   ];
 }
@@ -122,86 +140,87 @@ function buildMockSlideshows(topic) {
 // --- MOCK WALL-OF-TEXT POSTS ---
 function buildMockWallPosts(topic) {
   return [
-    `The ${topic} advice no one tells you:\n\n→ Start before you're ready\n→ Done > perfect\n→ Show your process, not just results\n\nI spent 2 years waiting to be "good enough."\n\nDon't make my mistake.\n\nThe algorithm rewards consistency more than perfection.\n\nPost ugly. Post scared. Post anyway.\n\nThe people winning at ${topic} aren't smarter than you.\n\nThey just started.\n\n---\n\nWhat's stopping YOU from starting with ${topic}? Drop it below 👇`,
+    `ngl the ${topic} advice on this app is wild rn\n\neveryone's out here saying "just be consistent" like that's some groundbreaking revelation\n\nbut nobody talks about what to do when you've been consistent for 6 months and nothing's happening\n\nso here's what actually worked for me:\n\ni stopped posting what i thought would go viral\nand started posting what i genuinely cared about\n\nsounds dumb right?\n\nbut the algorithm can literally tell when you're forcing it\n\nmy most viral post ever was a rant i almost didn't publish bc i thought it was "too personal"\n\n47k views. from being real.\n\nthe ${topic} game isn't about hacks\nit's about being the one person who's not faking it\n\ntbh that's harder than any strategy\n\nwhat's one thing you're afraid to post about? drop it below 👇`,
 
-    `Hot take: Most ${topic} "gurus" are lying to you. 🔥\n\nThey show the highlight reel.\nThey hide the 847 failed attempts.\nThey sell you a shortcut that doesn't exist.\n\nHere's what actually works:\n\n1. Pick ONE thing related to ${topic}\n2. Do it every day for 90 days\n3. Ignore everything else\n\nThat's it. That's the secret.\n\nNo course. No funnel. No $997 masterclass.\n\nJust reps.\n\nThe boring stuff IS the strategy.\n\nSave this. Screenshot it. Tattoo it if you have to. 😤\n\nWho's committing to 90 days with me? Comment "90" 👇`,
+    `ok i need to talk about something with ${topic} that's been bothering me\n\nthis whole "hustle 24/7" narrative is genuinely harmful\n\ni tried it. for 18 months.\n\nhere's what i got:\n→ burned out so bad i couldn't get out of bed\n→ lost relationships bc i was "always working"\n→ my content got WORSE not better\n→ my ${topic} results actually flatlined\n\nwhat actually moved the needle:\n\nworking 5 focused hours instead of 12 scattered ones\n\ntaking weekends completely off\n\nsaying no to opportunities that didn't excite me\n\nmy revenue went UP when i worked less\n\nbc burnt out people make bad decisions\n\nif you're running on empty rn... this is your permission to rest\n\nrest is productive. i'll die on this hill. 🤷`,
 
-    `I lost everything 18 months ago.\n\nMy business failed. My savings were gone.\nI had to move back in with my parents at 29.\n\nHere's what ${topic} taught me during rock bottom:\n\n→ Your network is your net worth (cliché but TRUE)\n→ Skills pay the bills, not credentials\n→ Embarrassment is temporary, regret is forever\n\nFast forward to today:\n✅ 6-figure business rebuilt from scratch\n✅ 100K+ community\n✅ Doing what I love daily\n\nThe comeback is ALWAYS greater than the setback.\n\nIf you're in a tough spot with ${topic} right now — keep going.\n\nThis post is your sign. 🙌\n\nShare this with someone who needs to hear it today ❤️`,
+    `tbh i almost quit ${topic} last month\n\n3 months of posting every day\n\nfollowers barely moving\n\nengagement was mid at best\n\ni was THIS close to deleting everything\n\nthen one post hit\n\nnot even my best work honestly\n\njust me being frustrated and real about the ${topic} struggle\n\n200k views in 48 hours\n\nand here's what i learned:\n\nthe posts where you're most vulnerable\nthe ones you almost don't publish\nthose are the ones that connect\n\nbc everyone else is posting polished perfect content\n\nand people are starving for someone who's just... real\n\nif you're in the "nothing is working" phase rn\n\nkeep going\n\nyour breakout post is probably the next one you're scared to make\n\nwho else is in the grind phase? 🙋`,
 
-    `Stop saying you don't have time for ${topic}.\n\nYou have the same 24 hours as everyone else.\n\nYou just haven't made it a priority yet.\n\n🔹 Wake up 1 hour earlier\n🔹 Replace Netflix with learning\n🔹 Use commute time for podcasts\n🔹 Batch your tasks on weekends\n\nI built my entire ${topic} brand in 1 hour a day.\n\nBefore work. While my coffee brewed. During lunch breaks.\n\nSmall pockets of time compound into massive results.\n\n📊 1 hour/day = 365 hours/year = 9 full work weeks\n\nThat's enough time to:\n- Build a side business\n- Write a book\n- Transform your body\n- Master ${topic}\n\nStop making excuses. Start making progress.\n\nWhat will YOU use your extra hour for? 💬👇`,
+    `unpopular ${topic} opinion incoming:\n\nyou don't need a niche\n\nthere i said it\n\nevery guru says "niche down" like it's gospel\n\nbut some of the biggest creators i know post about whatever they want\n\nthe niche is YOU\n\nyour perspective. your humor. your way of explaining things.\n\ni spent months trying to be a "${topic} expert account" and it felt so forced\n\nswitched to just sharing what i find interesting + my honest takes\n\nand engagement went 📈\n\nbc people follow people not topics\n\nnow that said... if niching down works for you, amazing. keep doing it.\n\nbut if you're struggling bc you feel boxed in?\n\nmaybe the box is the problem\n\nnot you\n\nimo the best content comes from curiosity not strategy\n\nthoughts? agree or disagree? 💬`,
 
-    `Unpopular opinion about ${topic}:\n\nYou don't need:\n❌ A perfect strategy\n❌ Expensive equipment\n❌ A massive following\n❌ Anyone's permission\n\nYou DO need:\n✅ The courage to start\n✅ The humility to suck at first\n✅ The discipline to keep going\n✅ A genuine desire to help people\n\nEvery expert was once a beginner.\nEvery viral post started with 0 views.\nEvery successful ${topic} brand started with 0 followers.\n\nYour future audience is waiting for you to hit "post."\n\nDon't keep them waiting.\n\n🔔 Follow me for more raw, no-BS ${topic} advice.`,
+    `real talk: the ${topic} content you're consuming is probably holding you back\n\nnot bc it's bad advice necessarily\n\nbut bc you're spending 2 hours a day learning\nand 0 hours doing\n\ni used to watch every youtube video about ${topic}\nread every thread\nsave every carousel\n\nand then do... nothing with it\n\nbc i was stuck in "research mode"\n\nhere's the uncomfortable truth:\n\nyou already know enough to start\n\nlike right now\n\nyou don't need one more course\none more strategy breakdown\none more "ultimate guide"\n\nyou need to post something imperfect today\n\nand then do it again tomorrow\n\nbc the gap between where you are and where you want to be with ${topic}?\n\nit's not a knowledge gap\n\nit's an action gap\n\nclose the app. go make something. come back and tell me you did it 🔥`,
 
-    `The ${topic} framework that 10x'd my results:\n\nI call it the P.O.S.T. method:\n\n𝗣 - Problem (lead with a pain point)\n𝗢 - Outcome (show what's possible)\n𝗦 - Steps (give actionable value)\n𝗧 - Transformation (paint the after picture)\n\nBefore P.O.S.T.: 200 views per post. Crickets.\nAfter P.O.S.T.: 50K+ views consistently. DMs flooding in.\n\nIt works because human brains are wired for stories.\n\nProblem → Solution → Result.\n\nUse this for ${topic} and watch your engagement explode. 💥\n\nBookmark this. You'll thank me in 30 days.\n\nDrop a 🔥 if you're going to try this today!`,
+    `something wild happened with my ${topic} this week and i have to share\n\ngot a DM from someone saying my content helped them start their business\n\nthey literally quit their job\n\nand here's the thing... i have less than 5k followers\n\nwe get so caught up in numbers\n\n"i only have 200 followers"\n"my post only got 50 views"\n\nbut those are REAL PEOPLE\n\n50 views = 50 humans who stopped scrolling to listen to you\n\nthat's more people than fit in most classrooms\n\nif you're making ${topic} content for a small audience rn\n\nyou're not small\n\nyou're early\n\nand the people watching now are going to be your day ones when you blow up\n\nkeep showing up for them 💛`,
 
-    `"How do you stay consistent with ${topic}?"\n\nI get this question daily. Here's my honest answer:\n\nI don't rely on motivation. It's unreliable.\n\nInstead, I built SYSTEMS:\n\n📌 Monday: Film 3 videos\n📌 Tuesday: Write 5 captions\n📌 Wednesday: Engage for 30 min\n📌 Thursday: Design 2 carousels\n📌 Friday: Review analytics\n📌 Weekend: Rest & brainstorm\n\nTotal time: ~5 hours/week for ${topic}.\n\nThat's less than most people spend scrolling.\n\nThe difference between creators who make it and those who don't?\n\nSystems > willpower.\n\nEvery. Single. Time.\n\nSteal my schedule. Adapt it. Make it yours.\n\nComment "SYSTEM" and I'll DM you the full template 📩`,
+    `the ${topic} strategy that nobody's talking about bc it's too simple:\n\nreply to every single comment\n\nnot with "thanks!" or a heart emoji\n\nwith a genuine thoughtful response\n\ni know it sounds basic but hear me out\n\nwhen someone comments and you actually engage?\n→ they feel seen\n→ they come back\n→ the algorithm notices the conversation\n→ other people see the replies and want to join\n\ni went from 2% to 11% engagement rate just from this\n\nno fancy tools\nno scheduling software\njust being a human who talks to other humans\n\nthe irony of ${topic} social media is that being genuinely social is the biggest competitive advantage\n\nand almost nobody does it bc it doesn't scale\n\nbut honestly? it doesn't need to scale yet\n\nbe unscalable. it's a superpower rn. 🫡`,
 
-    `3 years ago I knew nothing about ${topic}.\n\nToday it generates $15K/month for me.\n\nHere are the 7 books that changed everything:\n\n📚 "Atomic Habits" — Systems thinking\n📚 "Building a StoryBrand" — Clear messaging\n📚 "$100M Offers" — Irresistible value props\n📚 "Show Your Work" — Content creation\n📚 "Influence" — Psychology of persuasion\n📚 "The Lean Startup" — Iterate fast\n📚 "Deep Work" — Focus in a distracted world\n\nI didn't read them all at once.\nOne per month. Applied immediately.\n\nKnowledge without action is just entertainment.\n\nWhich one are you reading first? Comment below 📖👇`,
+    `ok storytime about ${topic} bc this was a turning point for me\n\n6 months ago i was posting the "right" way\n\ntrending audios ✓\noptimal posting times ✓\nhashtag research ✓\nperfect thumbnails ✓\n\nresult: crickets\n\nthen one day i was having a terrible day and just ranted on camera for 90 seconds about how ${topic} is harder than people make it look\n\ndidn't edit it\ndidn't add captions\ndidn't even fix my hair\n\nthat video outperformed my last 30 posts COMBINED\n\nbc the algorithm doesn't reward perfect content\n\nit rewards content that makes people FEEL something\n\nand raw unfiltered honesty makes people feel more than any polished carousel ever will\n\nstop trying to be perfect\nstart trying to be real\n\nthat's the whole strategy tbh`,
 
-    `I'm going to say something controversial about ${topic}:\n\nFollower count doesn't matter.\n\nI know creators with 500K followers making $0.\nAnd creators with 5K followers making $20K/month.\n\nThe difference?\n\n→ TRUST over reach\n→ DEPTH over breadth\n→ COMMUNITY over audience\n\n1,000 people who genuinely care about your ${topic} message is worth more than 1M passive scrollers.\n\nStop chasing vanity metrics.\nStart building real connections.\n\nReply with your niche — I'll tell you exactly how to build your 1,000 true fans ⬇️`,
-
-    `This will sound weird but...\n\nThe best ${topic} decision I ever made was quitting.\n\nI quit:\n🚫 Comparing myself to others\n🚫 Posting what I "should" post\n🚫 Chasing trends I didn't care about\n🚫 Trying to please everyone\n\nAnd started:\n✅ Sharing MY actual opinions\n✅ Being unapologetically myself\n✅ Creating content I'd want to consume\n✅ Serving one specific person\n\nThe irony? That's when ${topic} actually started working.\n\nPeople don't follow perfect brands.\nThey follow real humans.\n\nBe the real human. 🫶\n\nDouble-tap if this hit different ❤️`,
-
-    `Your ${topic} content isn't getting views?\n\nIt's probably one of these 5 mistakes:\n\n1️⃣ Weak hook — you have 1.5 seconds. Lead with SHOCK, CURIOSITY, or PAIN.\n2️⃣ Too long — trim 30% ruthlessly. If it doesn't add value, cut it.\n3️⃣ No clear CTA — tell people what to DO (save, share, comment, follow).\n4️⃣ Wrong timing — post when your audience is online, not when it's convenient for you.\n5️⃣ Inconsistency — the algorithm forgets you after 48 hours of silence.\n\nFix these 5 things and your ${topic} reach will skyrocket. I guarantee it.\n\nWhich mistake are you guilty of? Be honest 👇😅`
+    `hot take: if your ${topic} content isn't getting views it's probably bc your hooks are mid\n\nnot your content\nnot your editing\nnot the algorithm\n\njust your first line\n\nbc nobody sees your amazing insight on slide 4 if slide 1 doesn't stop the scroll\n\nhere's what works rn:\n\n→ "nobody talks about this" (curiosity gap)\n→ "i was wrong about..." (pattern interrupt)\n→ "stop doing X" (negative command)\n→ "this is embarrassing but..." (vulnerability)\n→ "here's what $X taught me about ${topic}" (specificity)\n\nspend 50% of your creation time on the hook\n\nthat's not an exaggeration\n\nthe hook IS the content in 2025\n\neverything else is just payoff for getting them to stay\n\nsave this list for the next time you sit down to create 📌`
   ];
 }
 
 // --- MOCK VIDEO HOOKS ---
 function buildMockVideoHooks(topic) {
   return [
-    `[HOOK - 0:00-0:03]: "Stop scrolling — this ${topic} tip is worth $10,000."\n\n[SETUP - 0:03-0:10]: "I spent 3 years and $50K learning this the hard way. You're getting it in 60 seconds."\n\n[POINT 1 - 0:10-0:25]: "The biggest mistake with ${topic} is trying to do everything at once. Pick ONE channel, ONE format, and go all in for 90 days. That's how every big creator started."\n\n[POINT 2 - 0:25-0:40]: "Second — steal like an artist. Find 3 accounts crushing ${topic}, study their hooks, their format, their posting schedule. Model what works, add your unique spin."\n\n[CTA - 0:40-0:60]: "Follow me for more ${topic} cheat codes. I drop one every single day. And comment 'MORE' — I'll send you my full strategy guide."\n\nCAPTION: This ${topic} tip alone changed everything for me 🤯 Save for later!\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #growthhacks #contentcreator #viral #learnontiktok`,
+    `[HOOK - 0:00-0:03]: "ok so... nobody's gonna tell you this about ${topic} so i will."\n\n[SETUP - 0:03-0:10]: "i literally spent like a year doing this wrong and the fix was so stupidly simple i'm almost embarrassed to share it."\n\n[POINT 1 - 0:10-0:25]: "here's the thing... everyone says you need to post more. post consistently. post every day. and like... yeah sure. but what they don't tell you is that one really good ${topic} post outperforms 30 mid ones. i had a month where i posted 4 times total and grew more than the month i posted 30 times."\n\n[POINT 2 - 0:25-0:40]: "so instead of asking 'how do i post more' ask 'how do i make something someone would actually send to their friend.' that's the real ${topic} metric. not views. shares."\n\n[CTA - 0:40-0:60]: "if this was helpful save it bc i'm gonna break down exactly how to make shareable content in my next post. follow so you don't miss it."\n\nCAPTION: the ${topic} advice i needed to hear a year ago tbh\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #creatortips #realtalk #growthhacks #learnontiktok`,
 
-    `[HOOK - 0:00-0:03]: "Nobody talks about THIS side of ${topic}..."\n\n[SETUP - 0:03-0:10]: "Everyone shows the wins. The followers. The revenue. But no one shows you what it actually takes behind the scenes."\n\n[POINT 1 - 0:10-0:25]: "The truth about ${topic}? It's 80% boring work. Writing captions at midnight. Filming takes 5 through 12. Staring at analytics wondering why post #47 flopped."\n\n[POINT 2 - 0:25-0:40]: "But here's the thing — that boring 80% is what separates the top 1% from everyone else. They don't have more talent. They have more tolerance for the grind."\n\n[CTA - 0:40-0:60]: "If you're in the grind right now with ${topic} — keep going. Follow for the real, unfiltered truth about this game."\n\nCAPTION: The truth about ${topic} nobody shows you 😤 (watch till the end)\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #realtalk #entrepreneur #hardwork #motivation`,
+    `[HOOK - 0:00-0:03]: "stop... do not spend money on ${topic} until you watch this."\n\n[SETUP - 0:03-0:10]: "i wasted like $3k on courses and tools before realizing everything i needed was free. literally free. let me save you the money real quick."\n\n[POINT 1 - 0:10-0:25]: "first thing — you don't need canva pro. the free version does like 90% of what you need for ${topic}. second — capcut is free and it's better than most paid editors. third — google trends is free and it tells you exactly what people are searching for right now."\n\n[POINT 2 - 0:25-0:40]: "the expensive thing isn't tools it's TIME. and the biggest time waste in ${topic} is creating content nobody asked for. so before you make anything... go to reddit, go to quora, look at the questions people actually ask. then answer them. that's it."\n\n[CTA - 0:40-0:60]: "comment 'FREE' and i'll drop my full list of free ${topic} tools that i use every single day. and follow bc i make these every week."\n\nCAPTION: saved myself $3k with this ${topic} realization ngl\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #freetools #savemoney #creatortips #tiktokgrowth`,
 
-    `[HOOK - 0:00-0:03]: "What if I told you ${topic} is a lie?"\n\n[SETUP - 0:03-0:10]: "Well, not exactly. But the way most people approach it? Completely backwards. Let me explain."\n\n[POINT 1 - 0:10-0:25]: "Most people start with ${topic} strategy. Wrong. Start with your AUDIENCE. Who are they? What keeps them up at night? What do they scroll past vs. save? Strategy without audience clarity is noise."\n\n[POINT 2 - 0:25-0:40]: "Once you know your audience, ${topic} becomes easy. You're just answering their questions, solving their problems, and entertaining them along the way."\n\n[CTA - 0:40-0:60]: "Want me to break down exactly how to find your audience? Comment 'AUDIENCE' and follow — I'll post the full framework tomorrow."\n\nCAPTION: ${topic} is easier than you think when you flip the script 🔄\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #audiencegrowth #marketingtips #socialmedia #strategy`,
+    `[HOOK - 0:00-0:03]: "i need to be honest about ${topic} for a second."\n\n[SETUP - 0:03-0:10]: "everyone on here makes it look easy right? like they just wake up, post content, money appears. i'm gonna show you what it actually looks like behind the scenes."\n\n[POINT 1 - 0:10-0:25]: "my screen time last week was 9 hours a day. not scrolling... working. editing, engaging, replying to DMs, researching ${topic} trends, writing captions at midnight. the 'passive income' everyone talks about? there's nothing passive about it in the beginning."\n\n[POINT 2 - 0:25-0:40]: "but here's what keeps me going... i talked to a 9-5 version of me. that person was putting in 8 hours a day making someone else's dream happen. at least now every hour i put into ${topic} compounds for ME. and that changes everything."\n\n[CTA - 0:40-0:60]: "if you're in the trenches rn... you're not alone. drop a '🫡' if you're grinding right now and follow for the unfiltered ${topic} journey."\n\nCAPTION: the part of ${topic} nobody shows you 🫡\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #behindthescenes #honestcreator #grindmode #realtalk`,
 
-    `[HOOK - 0:00-0:03]: "I grew from 0 to 100K using this one ${topic} trick."\n\n[SETUP - 0:03-0:10]: "And no, it's not 'post consistently' or 'use trending audio.' It's way more specific than that."\n\n[POINT 1 - 0:10-0:25]: "The trick is the LOOP. End your video with something that makes people rewatch. A reveal. A payoff to the hook. A visual that only makes sense the second time. Replays DESTROY the algorithm in ${topic}."\n\n[POINT 2 - 0:25-0:40]: "My average watch time went from 40% to 115% using loops. That single metric change got me pushed to 2M+ views on three videos in one month."\n\n[CTA - 0:40-0:60]: "Save this and try it on your next ${topic} video. Then come back and tell me your results. Follow for more algorithm hacks!"\n\nCAPTION: The loop technique is INSANE for ${topic} 🔁🔥 Try it today\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #algorithmhack #viralvideo #contentcreation #tiktokgrowth`,
+    `[HOOK - 0:00-0:03]: "this ${topic} hack is actually insane and takes 5 minutes."\n\n[SETUP - 0:03-0:10]: "ok so i tested this for 30 days and my engagement literally doubled. and it's so simple you're gonna be mad you weren't doing it already."\n\n[POINT 1 - 0:10-0:25]: "right before you post... go spend 10 minutes genuinely engaging with other people's content in your ${topic} niche. not spam comments like 'great post!' — actually thoughtful replies. the algorithm sees you being active and it's like 'oh this person is here, let's show their stuff too.'"\n\n[POINT 2 - 0:25-0:40]: "i went from getting pushed to like 200 people to consistently hitting 2-3k on every ${topic} post. same content quality. the only variable i changed was this pre-posting engagement routine. it sounds too simple to work but... it just does."\n\n[CTA - 0:40-0:60]: "try this before your next post and come tell me if it worked. follow for more ${topic} stuff that actually moves numbers."\n\nCAPTION: tried this for 30 days and honestly wow 🤯\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #engagementhack #algorithmtip #growthtips #creatortok`,
 
-    `[HOOK - 0:00-0:03]: "3 ${topic} tools I can't live without — and they're all free."\n\n[SETUP - 0:03-0:10]: "I've tested over 50 tools this year. These 3 made the biggest difference and didn't cost me a dime."\n\n[POINT 1 - 0:10-0:25]: "Tool 1: CapCut for editing — it's free, powerful, and has auto-captions that actually work. Tool 2: Canva free tier for thumbnails and carousels — templates save hours."\n\n[POINT 2 - 0:25-0:40]: "Tool 3: Google Trends for ${topic} ideas. Type in your niche, see what's rising, create content around those topics BEFORE they peak. Early = viral."\n\n[CTA - 0:40-0:60]: "Comment 'TOOLS' and I'll DM you my full ${topic} tech stack — including 10 more free tools I use daily. Don't forget to follow!"\n\nCAPTION: Free tools that feel illegal to know about 🤫🔧 #${topic.replace(/\s/g, '')}\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #freetools #contentcreator #techstack #productivity`,
+    `[HOOK - 0:00-0:03]: "your ${topic} content is not the problem. i promise."\n\n[SETUP - 0:03-0:10]: "i've looked at hundreds of accounts that are stuck and it's almost never the content quality. it's almost always one of these three things."\n\n[POINT 1 - 0:10-0:25]: "number one... your hooks are boring. like genuinely nobody is reading past your first slide or watching past second three bc your opening doesn't create curiosity. number two... you're not telling people what to DO. no CTA means no engagement means the ${topic} algorithm ignores you."\n\n[POINT 2 - 0:25-0:40]: "and number three — this is the big one — you're not posting enough to even give the algorithm data to work with. like... three posts and you're discouraged? the algorithm needs at least 20-30 ${topic} posts to figure out who to show your stuff to."\n\n[CTA - 0:40-0:60]: "so here's your homework. go fix your hooks on your last 3 posts, add CTAs, and commit to 30 days. follow me and i'll check in on your progress."\n\nCAPTION: hard truth but someone had to say it about ${topic} 🎯\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #hardtruth #contentcreation #growthadvice #tiktokcoach`,
 
-    `[HOOK - 0:00-0:03]: "Your ${topic} content is boring. Here's how to fix it."\n\n[SETUP - 0:03-0:10]: "I don't say that to be mean. I say it because I was boring too. Until I learned this framework."\n\n[POINT 1 - 0:10-0:25]: "It's called the EDGE formula. E = Emotion — make them FEEL something. D = Data — back it up with a surprising stat. G = Give — provide real, actionable value. E = Entertain — keep it fun, fast, and visual."\n\n[POINT 2 - 0:25-0:40]: "Most ${topic} content only hits 1 of these 4. Hit all 4 in one post and you're basically guaranteed engagement. It's the difference between scroll-past and save."\n\n[CTA - 0:40-0:60]: "Try the EDGE formula on your next post and tag me — I'll give you feedback! Follow for more ${topic} frameworks."\n\nCAPTION: If your ${topic} content isn't hitting, try this 📐🔥\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #contentframework #socialmediatips #engagement #creatoreconomy`,
+    `[HOOK - 0:00-0:03]: "wait... you're still doing ${topic} like this?"\n\n[SETUP - 0:03-0:10]: "ok i'm not judging but if you're spending more than 30 minutes making a single post you need to hear this. there's a faster way and it actually performs better."\n\n[POINT 1 - 0:10-0:25]: "it's called batch creating and honestly it changed my life. i pick one day — usually sunday — and i make all my ${topic} content for the week. same setup, same lighting, just change shirts between videos. in 2 hours i have 5-7 pieces ready to go."\n\n[POINT 2 - 0:25-0:40]: "the rest of the week? i just engage. reply to comments, network in DMs, actually enjoy social media instead of stressing about what to post for ${topic}. and weirdly my content got BETTER bc i'm not creating from a place of panic anymore."\n\n[CTA - 0:40-0:60]: "if you want my exact sunday batch workflow save this and follow. i'll break down the whole system step by step this week."\n\nCAPTION: this changed how i do ${topic} content forever ngl\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #batchcreating #productivityhack #creatortips #contentworkflow`,
 
-    `[HOOK - 0:00-0:03]: "POV: You just discovered the ${topic} cheat code"\n\n[SETUP - 0:03-0:10]: "Everyone overcomplicates this. The people winning keep it stupidly simple. Watch."\n\n[POINT 1 - 0:10-0:25]: "Step 1: Find ONE post that went viral in your ${topic} niche. Step 2: Don't copy it — IMPROVE it. Add your experience, better examples, cleaner delivery."\n\n[POINT 2 - 0:25-0:40]: "Step 3: Post it at peak time. Step 4: Engage with every comment for 30 minutes. This is the exact playbook I used to go from 500 to 50K in ${topic}."\n\n[CTA - 0:40-0:60]: "Want the full playbook? It's in my bio. Follow for daily ${topic} drops that actually work."\n\nCAPTION: The ${topic} cheat code nobody gatekeeps 🎮💰\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #cheatcode #growthhack #viral #trending`,
+    `[HOOK - 0:00-0:03]: "the ${topic} strategy that feels like cheating tbh"\n\n[SETUP - 0:03-0:10]: "ok so this isn't actually cheating but it works so well it feels wrong. and i almost don't want to share it bc then everyone will do it. but whatever here you go."\n\n[POINT 1 - 0:10-0:25]: "go to your competitor's most viral post. look at the comments. those comments are telling you EXACTLY what content to make next. 'omg can you do a video on X?' — that's your next ${topic} video. 'wait how does Y work?' — that's a carousel. the audience is literally giving you the content calendar."\n\n[POINT 2 - 0:25-0:40]: "i've been doing this for 3 months and my ${topic} content ideas went from 'idk what to post' to having more ideas than i can actually create. and they perform well bc the demand is already proven. you're not guessing anymore."\n\n[CTA - 0:40-0:60]: "go try this right now. pick your biggest competitor and read their comments. then follow me bc i share frameworks like this every week."\n\nCAPTION: this feels illegal but it's just smart ${topic} strategy 🤫\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #competitorresearch #contentstrategy #cheatcode #viralcontent`,
 
-    `[HOOK - 0:00-0:03]: "Delete this before ${topic} gurus see it 😂"\n\n[SETUP - 0:03-0:10]: "I'm about to expose the entire playbook they charge $997 for. Ready? It's actually embarrassingly simple."\n\n[POINT 1 - 0:10-0:25]: "The secret: Talk about ONE thing. Pick a micro-niche within ${topic}. Be the go-to person for THAT thing. Not 'social media tips' — 'Instagram Reels hooks for fitness coaches.' THAT specific."\n\n[POINT 2 - 0:25-0:40]: "When you niche down, the algorithm knows exactly who to show your content to. Your ${topic} audience finds you faster. And your conversion rate goes through the roof because you're speaking directly to them."\n\n[CTA - 0:40-0:60]: "Comment your niche and I'll tell you how to micro-niche it. Follow for more free ${topic} game!"\n\nCAPTION: They're going to be mad I posted this about ${topic} 🫢🔥\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #nichdown #exposed #freetips #growthmindset`
+    `[HOOK - 0:00-0:03]: "POV: you finally understand how ${topic} actually works"\n\n[SETUP - 0:03-0:10]: "took me embarrassingly long to figure this out but here's the thing nobody explains properly about how the algorithm works in 2025."\n\n[POINT 1 - 0:10-0:25]: "the algorithm doesn't care about YOU. it cares about watch time and shares. that's basically it for ${topic}. so every piece of content you make needs to answer two questions: will someone watch this to the end? and will someone send this to a friend? if the answer to both is yes... you'll grow."\n\n[POINT 2 - 0:25-0:40]: "so how do you get watch time? storytelling. open a loop in the first 3 seconds and don't close it until the end. how do you get shares? make something that makes someone think 'omg this is SO my friend' or 'i need to remember this.' that's the whole ${topic} game."\n\n[CTA - 0:40-0:60]: "save this bc you're gonna want to rewatch it. and follow for more breakdowns of how this stuff actually works behind the scenes."\n\nCAPTION: took me way too long to learn this about ${topic} 😅\n\nHASHTAGS: #${topic.replace(/\s/g, '')} #algorithmexplained #howtogoviral #contentcreation #2025strategy`
   ];
 }
 
 // --- MOCK GREEN SCREEN MEMES ---
 function buildMockGreenScreens(topic) {
   return [
-    `BACKGROUND_SEARCH: success celebration party\nTOP_TEXT: ME EXPLAINING ${topic.toUpperCase()}\nBOTTOM_TEXT: MY FRIENDS PRETENDING TO CARE\nREACTION_TEXT: "Wait... this actually works??"\nCAPTION: The ${topic} pipeline hits different when it actually works 😭🔥\nHASHTAGS: #${topic.replace(/\s/g, '')} #relatable #foryou #viral #contentcreator`,
+    `BACKGROUND_SEARCH: chaotic office meeting\nTOP_TEXT: ME EXPLAINING ${topic.toUpperCase()}\nBOTTOM_TEXT: TO MY FAMILY AT DINNER\nREACTION_TEXT: "no bc why are their eyes glazing over i'm literally changing the game rn"\nCAPTION: they'll understand when the bag arrives ngl 💰 tag someone who doesn't get your ${topic} vision\nHASHTAGS: #${topic.replace(/\s/g, '')} #delusional #entrepreneur #foryou`,
 
-    `BACKGROUND_SEARCH: dumpster fire chaos\nTOP_TEXT: MY ${topic.toUpperCase()} STRATEGY\nBOTTOM_TEXT: WEEK 1 VS WEEK 12\nREACTION_TEXT: "It's called a learning curve, okay?"\nCAPTION: The glow-up is real if you survive the cringe phase 😂📈\nHASHTAGS: #${topic.replace(/\s/g, '')} #glowup #relatable #funny #creator`,
+    `BACKGROUND_SEARCH: person crying happy tears\nTOP_TEXT: FIRST ${topic.toUpperCase()} SALE\nBOTTOM_TEXT: IT'S $4.99\nREACTION_TEXT: "somebody call forbes. no actually call my mom first she said this wouldn't work"\nCAPTION: the first dollar hits different when everyone said you were delulu 😭 #${topic.replace(/\s/g, '')} #smallwins #maindcharacterenergy\nHASHTAGS: #${topic.replace(/\s/g, '')} #firstsale #entrepreneurlife #delulu`,
 
-    `BACKGROUND_SEARCH: rocket launch explosion\nTOP_TEXT: POSTING ${topic.toUpperCase()} CONTENT\nBOTTOM_TEXT: AT 3AM WITH ZERO FOLLOWERS\nREACTION_TEXT: "This is fine. The algorithm will find me... right?"\nCAPTION: POV: You're posting into the void but the delusion is strong 🚀😤\nHASHTAGS: #${topic.replace(/\s/g, '')} #smallcreator #delusional #foryoupage #grind`,
+    `BACKGROUND_SEARCH: tornado destruction chaos\nTOP_TEXT: MY ${topic.toUpperCase()} STRATEGY\nBOTTOM_TEXT: VS MY ACTUAL EXECUTION\nREACTION_TEXT: "the vision is there the skills are just loading give me a sec"\nCAPTION: it's giving 'fake it til you make it' but the faking part is going really well 🌪️ #relatable\nHASHTAGS: #${topic.replace(/\s/g, '')} #expectationvsreality #creatorlife #chaotic`,
 
-    `BACKGROUND_SEARCH: money cash raining\nTOP_TEXT: WHEN YOUR ${topic.toUpperCase()} POST\nBOTTOM_TEXT: FINALLY GOES VIRAL\nREACTION_TEXT: "MOM I MADE IT. Well... 47 cents in ad revenue but STILL"\nCAPTION: First viral moment with ${topic} and I'm already planning my retirement 💰😭\nHASHTAGS: #${topic.replace(/\s/g, '')} #viral #money #creator #firstviralpost`,
+    `BACKGROUND_SEARCH: red carpet celebrity arrival\nTOP_TEXT: ME POSTING ${topic.toUpperCase()} CONTENT\nBOTTOM_TEXT: TO MY 47 FOLLOWERS\nREACTION_TEXT: "good evening everyone yes i prepared remarks. thank you to my 3 loyal commenters you know who you are"\nCAPTION: serving main character energy to a very exclusive audience 💅 #smallcreator\nHASHTAGS: #${topic.replace(/\s/g, '')} #smallcreator #maincharacter #delulu #foryoupage`,
 
-    `BACKGROUND_SEARCH: confused math calculation\nTOP_TEXT: ME CALCULATING MY ${topic.toUpperCase()}\nBOTTOM_TEXT: ROI AT 3 IN THE MORNING\nREACTION_TEXT: "If I get 10 more followers per day... carry the 2... I'll be famous by 2047"\nCAPTION: The math ain't mathing but we keep going 📊🧮😂\nHASHTAGS: #${topic.replace(/\s/g, '')} #math #roi #funny #entrepreneurlife`,
+    `BACKGROUND_SEARCH: stock market crash screen\nTOP_TEXT: ME CHECKING MY ${topic.toUpperCase()}\nBOTTOM_TEXT: ANALYTICS AT 3AM\nREACTION_TEXT: "ok the reach is down but the VIBES are up and that's what matters right... right??"\nCAPTION: the algorithm and i are in a toxic relationship and i keep coming back 📉😭\nHASHTAGS: #${topic.replace(/\s/g, '')} #analytics #toxicrelationship #creatorproblems`,
 
-    `BACKGROUND_SEARCH: gym workout motivation\nTOP_TEXT: ${topic.toUpperCase()} GRIND\nBOTTOM_TEXT: DAY 47 NO RESULTS YET\nREACTION_TEXT: "They said consistency is key. WHERE IS THE DOOR"\nCAPTION: Still waiting for ${topic} compound growth to kick in 💪😩\nHASHTAGS: #${topic.replace(/\s/g, '')} #grind #consistency #noresults #keepgoing`,
+    `BACKGROUND_SEARCH: astronaut floating space\nTOP_TEXT: MY ${topic.toUpperCase()} CONTENT\nBOTTOM_TEXT: FLOATING IN THE VOID\nREACTION_TEXT: "houston we have a problem... nobody is engaging and i put a whole 4 hours into this"\nCAPTION: posting into the void but the void is starting to feel like home tbh 🚀 #creatortok\nHASHTAGS: #${topic.replace(/\s/g, '')} #contentcreator #thevoid #noviews #relatable`,
 
-    `BACKGROUND_SEARCH: person sleeping desk\nTOP_TEXT: "I'LL JUST MAKE ONE ${topic.toUpperCase()} POST"\nBOTTOM_TEXT: 4 HOURS LATER STILL EDITING\nREACTION_TEXT: "Perfectionism is my love language and my biggest enemy"\nCAPTION: When one ${topic} post turns into a 4-hour editing session 😴✨\nHASHTAGS: #${topic.replace(/\s/g, '')} #perfectionism #editing #creatorlife #relatable`,
+    `BACKGROUND_SEARCH: cooking kitchen fire disaster\nTOP_TEXT: MY FIRST ${topic.toUpperCase()} LAUNCH\nBOTTOM_TEXT: VS WHAT I PLANNED\nREACTION_TEXT: "this is fine. everything is fine. the smoke is just... ambiance"\nCAPTION: the launch plan was immaculate the execution was giving dumpster fire 🔥🗑️ #launchday\nHASHTAGS: #${topic.replace(/\s/g, '')} #productlaunch #thisisfire #startuplife #chaos`,
 
-    `BACKGROUND_SEARCH: detective investigation magnifying glass\nTOP_TEXT: ME STUDYING WHY MY ${topic.toUpperCase()} POST\nBOTTOM_TEXT: GOT 3 VIEWS (ALL FROM ME)\nREACTION_TEXT: "The algorithm is clearly broken. I demand a recount."\nCAPTION: Analytics said 3 views and I know 2 were my alt accounts 🔍😭\nHASHTAGS: #${topic.replace(/\s/g, '')} #analytics #lowviews #funny #algorithm`,
+    `BACKGROUND_SEARCH: detective magnifying glass searching\nTOP_TEXT: ME LOOKING FOR THE\nBOTTOM_TEXT: ${topic.toUpperCase()} ALGORITHM HACK\nREACTION_TEXT: "i've read 47 threads and 12 ebooks and i think the secret is... just posting?? no that can't be right"\nCAPTION: spent 6 hours researching hacks when i could've just made 6 posts 🔍🤡\nHASHTAGS: #${topic.replace(/\s/g, '')} #algorithmhack #overthinking #clownmoment`,
 
-    `BACKGROUND_SEARCH: stock market trading screen\nTOP_TEXT: TREATING ${topic.toUpperCase()}\nBOTTOM_TEXT: LIKE A FULL-TIME JOB\nREACTION_TEXT: "My boss doesn't know I've been editing reels since 9am"\nCAPTION: Corporate by day, ${topic} creator by... also day 📉💼🎬\nHASHTAGS: #${topic.replace(/\s/g, '')} #sidehustle #corporate #doubllife #escapingthe9to5`
+    `BACKGROUND_SEARCH: puppy dog looking sad cute\nTOP_TEXT: ME WAITING FOR ${topic.toUpperCase()}\nBOTTOM_TEXT: RESULTS AFTER ONE POST\nREACTION_TEXT: "it's been 4 hours where is my viral moment i was promised immediate success"\nCAPTION: patience is a virtue that i simply do not possess 🐶 tag a friend who gives up after 1 post\nHASHTAGS: #${topic.replace(/\s/g, '')} #impatient #nopatience #newcreator #relatable`,
+
+    `BACKGROUND_SEARCH: gym weightlifting heavy\nTOP_TEXT: THE ${topic.toUpperCase()} GRIND\nBOTTOM_TEXT: AT MONTH 6 ZERO RESULTS\nREACTION_TEXT: "they said compound growth kicks in at month 3... it's month 6 and the only thing compounding is my doubt"\nCAPTION: still waiting for the compound effect to compound 💪😩 no but fr when does it get easier\nHASHTAGS: #${topic.replace(/\s/g, '')} #grindset #compoundeffect #stillwaiting #realcreator`
   ];
 }
 
-async function generateSlideshow({ topic, platform, tone }) {
-  const system = `You are a viral social media content expert. Generate engaging carousel/slideshow content. Always respond with valid JSON only, no markdown.`;
+async function generateSlideshow({ topic, platform, tone, brandContext }) {
+  const brandLine = buildBrandLine(brandContext);
+  const system = `You are a TikTok/Instagram creator who makes viral carousels. Write in a casual, lowercase voice like a real person sharing tips — not a marketing robot. Think "things that helped me grow my business" not "5 Things That Will Transform Your Business." Use natural language, slang where appropriate, and make each slide feel like something a 25-year-old creator would actually post. Keep titles short and punchy (lowercase ok). Body text should be conversational and specific, not generic advice.${brandLine}
+
+Always respond with valid JSON only, no markdown.`;
   const prompt = `Create a 6-slide carousel for ${platform} about "${topic}".
-Tone: ${tone}. Make it viral and engaging.
+Tone: ${tone}. Make it feel like a real creator sharing from experience, not a listicle.
 Return ONLY this JSON format:
 [
-  {"slide": 1, "title": "Hook title (max 8 words)", "body": "2-3 sentences of value", "emoji": "🔥"},
-  {"slide": 2, "title": "Point 1 title", "body": "Explanation with actionable insight", "emoji": "💡"},
-  {"slide": 3, "title": "Point 2 title", "body": "Explanation with actionable insight", "emoji": "⚡"},
-  {"slide": 4, "title": "Point 3 title", "body": "Explanation with actionable insight", "emoji": "🎯"},
-  {"slide": 5, "title": "Bonus tip", "body": "The secret most people miss", "emoji": "✨"},
-  {"slide": 6, "title": "Save this! →", "body": "Follow for daily ${topic} tips!", "emoji": "❤️", "cta": true}
+  {"slide": 1, "title": "hook that stops the scroll (casual voice)", "body": "2-3 sentences, conversational, specific", "emoji": "relevant emoji"},
+  {"slide": 2, "title": "first real tip", "body": "explain like you're telling a friend", "emoji": "emoji"},
+  {"slide": 3, "title": "second tip", "body": "specific example or personal story", "emoji": "emoji"},
+  {"slide": 4, "title": "third tip", "body": "actionable and relatable", "emoji": "emoji"},
+  {"slide": 5, "title": "the one most people skip", "body": "surprising or counterintuitive insight", "emoji": "emoji"},
+  {"slide": 6, "title": "save this for later", "body": "casual CTA, follow for more", "emoji": "emoji", "cta": true}
 ]`;
 
   const raw = await callAI(system, prompt);
@@ -211,23 +230,25 @@ Return ONLY this JSON format:
       if (match) return JSON.parse(match[0]);
     } catch {}
   }
-  // Rich mock fallback - pick a random set
   const sets = buildMockSlideshows(topic);
   return pickRandom(sets);
 }
 
-async function generateWallOfText({ topic, platform, hookStyle }) {
+async function generateWallOfText({ topic, platform, hookStyle, brandContext }) {
   const maxWords = platform === 'twitter' ? 280 : platform === 'linkedin' ? 1300 : 500;
-  const system = `You are a viral ${platform} copywriter. Write posts that stop the scroll. Use frequent line breaks. Be direct and punchy.`;
-  const prompt = `Write a ${platform} post about "${topic}".
+  const brandLine = buildBrandLine(brandContext);
+  const system = `You are a real content creator writing an authentic ${platform} caption. Write like an actual person — use natural line breaks, casual abbreviations (bc, rn, ngl, tbh, imo, lowkey), and genuine emotion. This should feel like someone sitting down and typing out their real thoughts, not copywriting. Mix in vulnerability, humor, and strong opinions. Use lowercase freely. Break lines often for readability. Don't overuse emojis — sprinkle them naturally. The vibe is "real person sharing something they care about" not "brand posting content."${brandLine}`;
+  const prompt = `Write a ${platform} caption about "${topic}".
 Hook style: ${hookStyle || 'bold statement'}
 Max length: ${maxWords} characters
 Rules:
-- First line must make people stop scrolling (no "I" at the start)
-- Short sentences. White space. Easy to read.
-- Use emojis strategically (not every line)
-- End with a strong CTA (question or call to follow)
-- Make it feel real, not AI-generated`;
+- First line must be a scroll-stopper (not starting with "I")
+- Write like you're texting a friend who asked for advice
+- Use abbreviations naturally (bc, rn, ngl, tbh, imo)
+- Line breaks after almost every sentence for readability
+- Raw emotion > polished copywriting
+- End with something that makes people want to comment
+- NO hashtag stuffing at the end — max 3 hashtags woven in naturally`;
 
   const raw = await callAI(system, prompt);
   if (raw) return raw;
@@ -236,19 +257,20 @@ Rules:
   return pickRandom(posts);
 }
 
-async function generateVideoHook({ topic, platform, hookType }) {
-  const system = `You are a viral short-form video script writer for ${platform}. Create scripts that hook viewers in the first 3 seconds.`;
+async function generateVideoHook({ topic, platform, hookType, brandContext }) {
+  const brandLine = buildBrandLine(brandContext);
+  const system = `You are a creator writing a short-form video script that sounds natural when spoken aloud. Write the way people actually talk — with pauses, filler words, conversational rhythm. Use "like," "honestly," "look," "here's the thing" naturally. The script should feel like someone talking to camera in their room, not reading a teleprompter. Include beats/pauses marked with "..." for natural delivery. References should be current (2024-2025). Relatable examples > abstract advice.${brandLine}`;
   const prompt = `Write a 60-second video script about "${topic}" for ${platform}.
 Hook type: ${hookType || 'question'}
 
 Format exactly like this:
-[HOOK - 0:00-0:03]: (3-second grabber)
-[SETUP - 0:03-0:10]: (quick context)
-[POINT 1 - 0:10-0:25]: (main value)
-[POINT 2 - 0:25-0:40]: (supporting value)
-[CTA - 0:40-0:60]: (call to action)
+[HOOK - 0:00-0:03]: (3-second grabber — must feel natural spoken aloud)
+[SETUP - 0:03-0:10]: (quick context, conversational)
+[POINT 1 - 0:10-0:25]: (main value with specific example)
+[POINT 2 - 0:25-0:40]: (supporting value, relatable)
+[CTA - 0:40-0:60]: (casual call to action, not salesy)
 
-CAPTION: (post caption with emojis)
+CAPTION: (authentic caption with 1-2 emojis max)
 HASHTAGS: #hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5`;
 
   const raw = await callAI(system, prompt);
@@ -258,17 +280,18 @@ HASHTAGS: #hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5`;
   return pickRandom(scripts);
 }
 
-async function generateGreenScreen({ topic, platform, trend }) {
-  const system = `You are a meme and viral content creator. Create green screen meme scripts that are funny, relatable, and shareable.`;
+async function generateGreenScreen({ topic, platform, trend, brandContext }) {
+  const brandLine = buildBrandLine(brandContext);
+  const system = `You are a meme creator who's extremely online. Create green screen memes that reference current trends (2024-2025), use internet slang (no cap, it's giving, slay, rent free, understood the assignment, delulu, ate and left no crumbs, main character energy), and are genuinely funny — not "fellow kids" cringe. Think the kind of meme that gets shared in group chats. Reference real cultural moments, trending sounds, and creator culture. The humor should be self-deprecating, absurdist, or painfully relatable.${brandLine}`;
   const prompt = `Create a green screen meme about "${topic}" for ${platform}.
 Trend/format: ${trend || 'reaction meme'}
 
 Format:
 BACKGROUND_SEARCH: (2-3 words to search for background video, e.g. "stock market crash" or "party celebration")
-TOP_TEXT: (MAX 5 WORDS IN CAPS)
+TOP_TEXT: (MAX 5 WORDS IN CAPS — punchy, meme-style)
 BOTTOM_TEXT: (MAX 6 WORDS IN CAPS)
-REACTION_TEXT: (what the person on screen says/reacts, 1 sentence)
-CAPTION: (post caption with emojis)
+REACTION_TEXT: (what the person on screen says/reacts, 1 sentence — genuinely funny, use internet slang)
+CAPTION: (caption that makes people tag their friends, use current slang)
 HASHTAGS: #hashtag1 #hashtag2 #hashtag3`;
 
   const raw = await callAI(system, prompt);
@@ -278,17 +301,17 @@ HASHTAGS: #hashtag1 #hashtag2 #hashtag3`;
   return pickRandom(memes);
 }
 
-async function generateBlitz({ topic, platforms, count }) {
+async function generateBlitz({ topic, platforms, count, brandContext }) {
   const results = [];
   const types = ['slideshow', 'walloftext', 'videohook', 'greenscreen'];
   for (let i = 0; i < Math.min(count, platforms.length); i++) {
     const platform = platforms[i];
     const type = types[i % types.length];
     let content;
-    if (type === 'slideshow') content = await generateSlideshow({ topic, platform, tone: 'engaging' });
-    else if (type === 'walloftext') content = await generateWallOfText({ topic, platform });
-    else if (type === 'videohook') content = await generateVideoHook({ topic, platform });
-    else content = await generateGreenScreen({ topic, platform });
+    if (type === 'slideshow') content = await generateSlideshow({ topic, platform, tone: 'engaging', brandContext });
+    else if (type === 'walloftext') content = await generateWallOfText({ topic, platform, brandContext });
+    else if (type === 'videohook') content = await generateVideoHook({ topic, platform, brandContext });
+    else content = await generateGreenScreen({ topic, platform, brandContext });
     results.push({ type, platform, content });
   }
   return results;
