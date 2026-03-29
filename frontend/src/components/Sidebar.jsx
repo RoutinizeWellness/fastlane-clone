@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Zap, FileText, BookOpen, Calendar, BarChart2, TrendingUp, Users, Tag, HelpCircle, MessageSquare, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { Home, Zap, FileText, BookOpen, Calendar, BarChart2, TrendingUp, Users, Tag, HelpCircle, MessageSquare, Settings, LogOut, ChevronDown, Sparkles } from 'lucide-react'
 import { useStore } from '../store'
 
 const NAV_TOP = [
@@ -9,6 +9,8 @@ const NAV_TOP = [
   { to: '/library', icon: BookOpen, label: 'Library' },
   { to: '/calendar', icon: Calendar, label: 'Calendar' },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
+  { to: '/trending', icon: TrendingUp, label: 'Trending' },
+  { to: '/ugc', icon: Sparkles, label: 'UGC Avatars' },
 ]
 const NAV_BOTTOM = [
   { to: '/brand', icon: Tag, label: 'Brand' },
