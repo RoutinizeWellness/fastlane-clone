@@ -1,9 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle2, Circle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, BarChart3, Eye, TrendingUp, CalendarDays, Zap, Sparkles, Image, Type, Film, Monitor, Users, BookOpen } from 'lucide-react'
 import api from '../lib/api'
 import { useStore } from '../store'
 import { VIRAL_CONTENT, fmtNum } from '../lib/viralContent'
+
+const CHECKLIST_KEY = 'fl_home_checklist'
+const getStoredChecklist = () => {
+  try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}') } catch { return {} }
+}
 
 const TUTORIAL_VIDEOS = [
   { title: 'Intro & Homepage Guide', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
@@ -100,17 +105,6 @@ export default function Home() {
   const brandName = brand?.brandName || ''
   const industry = brand?.industry || ''
 
-  // Quickstart steps — personalized with brand context
-  const steps = [
-    { label: 'Swipe content in Blitz', done: true },
-    { label: 'Connect your account', done: true },
-    { label: brandName ? `Create your first ${brandName} content` : 'Create your first content', done: false, action: true },
-    { label: 'Schedule a post', done: false, action: true },
-    { label: brandName ? `Upload a ${brandName} demo video` : 'Upload a demo video', done: false, action: true },
-    { label: 'Make your first post', done: false },
-  ]
-  const doneCount = steps.filter(s => s.done).length
-
   // Use curated trending from VIRAL_CONTENT — only items with real image thumbnails
   useEffect(() => {
     const isImgUrl = (u) => u && (u.endsWith('.webp') || u.endsWith('.jpg') || u.endsWith('.png') || u.includes('%2Fslideshow%2F') || u.includes('/thumbnails/') || u.includes('/images/'))
@@ -131,79 +125,140 @@ export default function Home() {
 
   // "What you can create" cards
   const createCards = [
-    { emoji: '🖼️', label: 'Slideshow', tab: 'slideshow' },
-    { emoji: '📝', label: 'Wall of Text', tab: 'wall-of-text' },
-    { emoji: '🎬', label: 'Hook & Demo', tab: 'video-hook-and-demo' },
-    { emoji: '🤪', label: 'Green Screen Meme', tab: 'green-screen-meme' },
+    { icon: Image, label: 'Slideshow', tab: 'slideshow', desc: 'Image carousels that tell a story and drive swipes', color: '#3B82F6' },
+    { icon: Type, label: 'Wall of Text', tab: 'wall-of-text', desc: 'Bold text overlays that stop the scroll instantly', color: '#8B5CF6' },
+    { icon: Film, label: 'Hook & Demo', tab: 'video-hook-and-demo', desc: 'Viral hook paired with your product demo clip', color: '#EC4899' },
+    { icon: Monitor, label: 'Green Screen', tab: 'green-screen-meme', desc: 'Trending meme backgrounds with your product overlay', color: '#10B981' },
   ]
 
-  // Quick Actions
-  const quickActions = [
-    { label: 'Start Blitz', to: '/blitz', emoji: '⚡' },
-    { label: 'Create Content', to: '/content', emoji: '✨' },
-    { label: 'View Trending', to: '/trending', emoji: '📈' },
+  // Getting Started checklist with localStorage persistence
+  const [checklist, setChecklist] = useState(() => getStoredChecklist())
+  const checklistItems = [
+    { key: 'brand_profile', label: 'Set up brand profile' },
+    { key: 'first_content', label: 'Create first content' },
+    { key: 'schedule_post', label: 'Schedule a post' },
+    { key: 'connect_social', label: 'Connect social accounts' },
+  ]
+  const toggleCheck = useCallback((key) => {
+    setChecklist(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+  const checklistDone = checklistItems.filter(c => checklist[c.key]).length
+
+  // Quick stats (placeholder values - in production these come from API)
+  const stats = [
+    { label: 'Total Posts', value: '24', icon: BarChart3, trend: '+3 this week', up: true },
+    { label: 'Views this Month', value: '12.4K', icon: Eye, trend: '+18%', up: true },
+    { label: 'Engagement Rate', value: '4.2%', icon: TrendingUp, trend: '+0.8%', up: true },
+    { label: 'Scheduled', value: '7', icon: CalendarDays, trend: 'Next: Tomorrow', up: null },
   ]
 
   return (
     <div style={{ maxWidth: 900, padding: '32px 32px' }} className="animate-fade-up">
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        {/* Fastlane F logo */}
-        <svg width="40" height="28" viewBox="0 0 40 28" fill="none" style={{ marginBottom: 12 }}>
-          <path d="M2 2h36v6H10v5h20v6H10v10H2V2z" fill="#111827"/>
-        </svg>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px', margin: 0 }}>
-          {brandName ? `Welcome back, ${brandName}` : "Let's get your product seen."}
+      {/* Welcome Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #111827 0%, #1F2937 100%)',
+        borderRadius: 18, padding: '32px 36px', marginBottom: 28,
+        position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute', top: -40, right: -20, width: 180, height: 180,
+          background: 'rgba(234,88,12,0.12)', borderRadius: '50%',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -30, right: 60, width: 100, height: 100,
+          background: 'rgba(234,88,12,0.08)', borderRadius: '50%',
+        }} />
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.5px', margin: '0 0 6px' }}>
+          {brandName ? `Welcome back, ${brandName}` : "Welcome to Fastlane"}
         </h1>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', margin: 0, fontWeight: 400 }}>
+          {brandName ? 'Your content engine is ready. Let\u2019s create something viral.' : 'Create scroll-stopping content in minutes, not hours.'}
+        </p>
       </div>
 
-      {/* Quickstart card */}
-      <div style={{
-        background: 'white',
-        border: '1px solid rgba(229,231,235,0.8)',
-        borderRadius: 16, padding: '20px 24px',
-        maxWidth: 480, margin: '0 auto 40px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>Quickstart</span>
-          <span style={{ fontSize: 13, color: '#6B7280' }}>{doneCount}/{steps.length}</span>
-        </div>
-        {/* Progress bar */}
-        <div style={{ height: 4, background: '#F3F4F6', borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${(doneCount/steps.length)*100}%`, background: '#EA580C', borderRadius: 2, transition: 'width 0.5s' }} />
-        </div>
-        {steps.map((step, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < steps.length-1 ? '1px solid rgba(229,231,235,0.5)' : 'none' }}>
-            {step.done
-              ? <CheckCircle2 size={18} color="#9CA3AF" />
-              : <Circle size={18} color="#D1D5DB" />
-            }
-            <span style={{
-              fontSize: 14, flex: 1,
-              color: step.done ? '#9CA3AF' : '#111827',
-              textDecoration: step.done ? 'line-through' : 'none'
-            }}>{step.label}</span>
-            {step.action && !step.done && <ArrowRight size={14} color="#9CA3AF" />}
-          </div>
-        ))}
+      {/* Quick Stats Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 36 }}>
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <div key={stat.label} style={{
+              background: 'white', borderRadius: 14, padding: '18px 18px',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Icon size={17} color="#EA580C" />
+                </div>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{stat.value}</div>
+              <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4, fontWeight: 500 }}>{stat.label}</div>
+              {stat.trend && (
+                <div style={{
+                  fontSize: 11, marginTop: 6, fontWeight: 600,
+                  color: stat.up === true ? '#16A34A' : stat.up === false ? '#DC2626' : '#6B7280',
+                  display: 'flex', alignItems: 'center', gap: 3
+                }}>
+                  {stat.up === true && <TrendingUp size={11} />}
+                  {stat.trend}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 36 }}>
+        <Link to="/blitz" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#EA580C', color: 'white',
+          borderRadius: 10, padding: '12px 24px',
+          textDecoration: 'none', fontWeight: 700, fontSize: 14,
+          transition: 'background 0.2s', cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(234,88,12,0.25)'
+        }}
+          onMouseEnter={e => e.currentTarget.style.background = '#C2410C'}
+          onMouseLeave={e => e.currentTarget.style.background = '#EA580C'}
+        >
+          <Zap size={16} /> Start Blitz <ArrowRight size={14} />
+        </Link>
         <Link to="/content" style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          marginTop: 16, width: '100%',
-          background: '#EA580C', color: 'white', textDecoration: 'none',
-          textAlign: 'center', fontWeight: 700, fontSize: 14,
-          padding: '12px', borderRadius: 10
-        }}>
-          Continue setup <ArrowRight size={16} />
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#111827', color: 'white',
+          borderRadius: 10, padding: '12px 24px',
+          textDecoration: 'none', fontWeight: 700, fontSize: 14,
+          transition: 'background 0.2s', cursor: 'pointer'
+        }}
+          onMouseEnter={e => e.currentTarget.style.background = '#374151'}
+          onMouseLeave={e => e.currentTarget.style.background = '#111827'}
+        >
+          <Sparkles size={16} /> Create Content
+        </Link>
+        <Link to="/calendar" style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'white', color: '#111827',
+          borderRadius: 10, padding: '12px 24px', border: '1px solid #E5E7EB',
+          textDecoration: 'none', fontWeight: 700, fontSize: 14,
+          transition: 'all 0.2s', cursor: 'pointer'
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#EA580C'; e.currentTarget.style.color = '#EA580C' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#111827' }}
+        >
+          <CalendarDays size={16} /> View Calendar
         </Link>
       </div>
 
       {/* Trending Content */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>📈</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>{industry ? `Trending in ${industry}` : 'Trending Content'}</h2>
-        </div>
+      <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: '0 0 14px' }}>{industry ? `Trending in ${industry}` : 'Trending Content'}</h2>
         {loading ? (
           <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: 32, height: 32, border: '3px solid #EA580C', borderTopColor: 'transparent', borderRadius: '50%' }} className="animate-spin" />
@@ -234,65 +289,44 @@ export default function Home() {
       </div>
 
       {/* What you can create */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>🎨</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>What you can create</h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-          {createCards.map((card) => (
-            <Link key={card.tab} to={`/content?tab=${card.tab}`} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-              background: 'white', border: '1px solid rgba(229,231,235,0.8)',
-              borderRadius: 14, padding: '20px 12px',
-              textDecoration: 'none', color: '#111827',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              cursor: 'pointer'
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)' }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)' }}
-            >
-              <span style={{ fontSize: 28 }}>{card.emoji}</span>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>{card.label}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>🚀</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Quick Actions</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {quickActions.map((action) => (
-            <Link key={action.to} to={action.to} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: '#111827', color: 'white',
-              borderRadius: 10, padding: '12px 20px',
-              textDecoration: 'none', fontWeight: 700, fontSize: 14,
-              transition: 'background 0.2s',
-              cursor: 'pointer'
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = '#EA580C'}
-              onMouseLeave={e => e.currentTarget.style.background = '#111827'}
-            >
-              <span>{action.emoji}</span>
-              {action.label}
-              <ArrowRight size={14} />
-            </Link>
-          ))}
+      <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: '0 0 14px' }}>What you can create</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          {createCards.map((card) => {
+            const Icon = card.icon
+            return (
+              <Link key={card.tab} to={`/content?tab=${card.tab}`} style={{
+                display: 'flex', flexDirection: 'column', gap: 10,
+                background: 'white', border: '1px solid #E5E7EB',
+                borderRadius: 14, padding: '20px 18px',
+                textDecoration: 'none', color: '#111827',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                cursor: 'pointer'
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)' }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: `${card.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Icon size={19} color={card.color} />
+                </div>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{card.label}</span>
+                <span style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>{card.desc}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#EA580C', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  Create <ArrowRight size={12} />
+                </span>
+              </Link>
+            )
+          })}
         </div>
       </div>
 
       {/* Tutorial Videos */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>🎥</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Tutorial Videos</h2>
-        </div>
+      <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: '0 0 14px' }}>Tutorial Videos</h2>
         <div style={{
           display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8,
           scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch'
@@ -305,12 +339,88 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Getting Started Checklist + Community — side by side */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 36 }}>
+        {/* Getting Started */}
+        <div style={{
+          background: 'white', borderRadius: 14, border: '1px solid #E5E7EB',
+          padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h3 style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: 0 }}>Getting Started</h3>
+            <span style={{ fontSize: 12, fontWeight: 600, color: checklistDone === checklistItems.length ? '#16A34A' : '#6B7280' }}>
+              {checklistDone}/{checklistItems.length}
+            </span>
+          </div>
+          <div style={{ height: 4, background: '#F3F4F6', borderRadius: 2, marginBottom: 16, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(checklistDone/checklistItems.length)*100}%`, background: checklistDone === checklistItems.length ? '#16A34A' : '#EA580C', borderRadius: 2, transition: 'width 0.4s' }} />
+          </div>
+          {checklistItems.map((item, i) => (
+            <div
+              key={item.key}
+              onClick={() => toggleCheck(item.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
+                borderBottom: i < checklistItems.length - 1 ? '1px solid #F3F4F6' : 'none',
+                cursor: 'pointer', userSelect: 'none'
+              }}
+            >
+              {checklist[item.key]
+                ? <CheckCircle2 size={18} color="#16A34A" />
+                : <Circle size={18} color="#D1D5DB" />
+              }
+              <span style={{
+                fontSize: 13, flex: 1, fontWeight: 500,
+                color: checklist[item.key] ? '#9CA3AF' : '#111827',
+                textDecoration: checklist[item.key] ? 'line-through' : 'none',
+                transition: 'all 0.2s'
+              }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Community */}
+        <div style={{
+          background: 'white', borderRadius: 14, border: '1px solid #E5E7EB',
+          padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          display: 'flex', flexDirection: 'column'
+        }}>
+          <h3 style={{ fontWeight: 700, fontSize: 15, color: '#111827', margin: '0 0 6px' }}>Community</h3>
+          <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 16px', lineHeight: 1.6 }}>
+            Join other founders and creators sharing wins, strategies, and feedback.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+            <a href="https://discord.gg/aaAQ9VzQ6j" target="_blank" rel="noopener noreferrer" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '11px 20px', borderRadius: 10,
+              background: '#5865F2', color: 'white',
+              textDecoration: 'none', fontWeight: 700, fontSize: 13,
+              transition: 'background 0.2s'
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = '#4752C4'}
+              onMouseLeave={e => e.currentTarget.style.background = '#5865F2'}
+            >
+              <Users size={15} /> Join our Discord
+            </a>
+            <Link to="/guide" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '11px 20px', borderRadius: 10,
+              background: '#F9FAFB', color: '#374151', border: '1px solid #E5E7EB',
+              textDecoration: 'none', fontWeight: 700, fontSize: 13,
+              transition: 'all 0.2s'
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#EA580C'; e.currentTarget.style.color = '#EA580C' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
+            >
+              <BookOpen size={15} /> View Guide
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Frequently Asked Questions */}
       <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <span style={{ fontSize: 18 }}>❓</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Frequently Asked Questions</h2>
-        </div>
+        <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: '0 0 14px' }}>Frequently Asked Questions</h2>
         <div style={{ background: 'white', borderRadius: 14, border: '1px solid rgba(229,231,235,0.8)', padding: '4px 20px' }}>
           {[
             { q: 'How do I warm up my account?', a: 'Behave like a normal user for 3-5 days. Set up your profile, scroll, like, and comment. After that, begin posting 1-2 times per day while continuing to engage.' },
@@ -332,27 +442,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Footer links */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 32 }}>
-        <a href="https://discord.gg/aaAQ9VzQ6j" target="_blank" rel="noopener noreferrer" style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 24px', borderRadius: 12,
-          background: 'white', border: '1px solid #E5E7EB',
-          textDecoration: 'none', color: '#374151', fontWeight: 600, fontSize: 14,
-          cursor: 'pointer'
-        }}>
-          💬 Join our Discord
-        </a>
-        <Link to="/guide" style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 24px', borderRadius: 12,
-          background: 'white', border: '1px solid #E5E7EB',
-          textDecoration: 'none', color: '#374151', fontWeight: 600, fontSize: 14,
-          cursor: 'pointer'
-        }}>
-          📖 View Guide
-        </Link>
-      </div>
     </div>
   )
 }
