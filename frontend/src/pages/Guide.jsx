@@ -1,5 +1,80 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+
+const GUIDE_VIDEOS = [
+  {
+    section: 'Getting Started',
+    videos: [
+      { title: 'Intro & Homepage Guide', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
+    ]
+  },
+  {
+    section: 'Blitz Mode',
+    videos: [
+      { title: 'Blitz Guide', url: 'https://media.aftermark.ai/tutorials/compressed-blitz-guide.mov' },
+      { title: 'Blitz Demo', url: 'https://media.aftermark.ai/tutorials/blitz-demo.mp4' },
+    ]
+  },
+  {
+    section: 'Manual Creation',
+    videos: [
+      { title: 'Manual Creation Demo', url: 'https://media.aftermark.ai/tutorials/manual-creation-demo.mp4' },
+    ]
+  },
+  {
+    section: 'Green Screen',
+    videos: [
+      { title: 'Green Screen Tutorial', url: 'https://media.aftermark.ai/tutorials/2-green-screen.mp4' },
+    ]
+  },
+  {
+    section: 'Wall of Text',
+    videos: [
+      { title: 'Wall of Text Tutorial', url: 'https://media.aftermark.ai/tutorials/3-wall-of-text.mp4' },
+    ]
+  },
+  {
+    section: 'Hook & Demo',
+    videos: [
+      { title: 'Hook & Demo Tutorial', url: 'https://media.aftermark.ai/tutorials/4-hook-demo.mp4' },
+    ]
+  },
+  {
+    section: 'Slideshows',
+    videos: [
+      { title: 'Slideshows Tutorial', url: 'https://media.aftermark.ai/tutorials/5-slideshows.mp4' },
+    ]
+  },
+  {
+    section: 'Calendar & Library',
+    videos: [
+      { title: 'Calendar & Library Tutorial', url: 'https://media.aftermark.ai/tutorials/6-calendar-library.mp4' },
+    ]
+  },
+]
+
+function GuideVideo({ video }) {
+  const ref = useRef(null)
+  return (
+    <div style={{
+      borderRadius: 12, overflow: 'hidden', background: '#000',
+      border: '1px solid #E5E7EB', maxWidth: 320
+    }}>
+      <video
+        ref={ref}
+        src={video.url}
+        controls
+        muted
+        playsInline
+        preload="metadata"
+        style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }}
+      />
+      <div style={{ padding: '8px 12px', background: 'white' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{video.title}</span>
+      </div>
+    </div>
+  )
+}
 
 const FAQ_SECTIONS = [
   {
@@ -116,6 +191,19 @@ export default function Guide() {
         <h1 style={{ fontSize: 24, fontWeight: 800, color: '#111827', margin: 0 }}>Guide & FAQ</h1>
       </div>
 
+      {/* Tutorial Video Sections */}
+      {GUIDE_VIDEOS.map(section => (
+        <div key={section.section} style={{ marginBottom: 32 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>{section.section}</h3>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            {section.videos.map(vid => (
+              <GuideVideo key={vid.url} video={vid} />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* FAQ Sections */}
       {FAQ_SECTIONS.map(section => (
         <div key={section.title} style={{ marginBottom: 32 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>{section.title}</h3>

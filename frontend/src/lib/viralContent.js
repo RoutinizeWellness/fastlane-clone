@@ -3404,6 +3404,10 @@ export const getByType = (type) => {
   return VIRAL_CONTENT.filter((v) => v.contentType === t);
 };
 
+// Default slideshow placeholder image (Pinterest / Aftermark CDN)
+export const DEFAULT_SLIDESHOW_PLACEHOLDER =
+  "https://i.pinimg.com/1200x/33/04/18/330418dacabe4b566cccffa2aa9dc307.jpg";
+
 // Helper: format big numbers like TikTok
 export const fmtNum = (n) => {
   if (!n) return "0";

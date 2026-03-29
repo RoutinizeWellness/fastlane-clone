@@ -1,9 +1,49 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Circle } from 'lucide-react'
 import api from '../lib/api'
 import { useStore } from '../store'
 import { VIRAL_CONTENT, fmtNum } from '../lib/viralContent'
+
+const TUTORIAL_VIDEOS = [
+  { title: 'Intro & Homepage Guide', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
+  { title: 'Blitz Guide', url: 'https://media.aftermark.ai/tutorials/compressed-blitz-guide.mov' },
+  { title: 'Blitz Demo', url: 'https://media.aftermark.ai/tutorials/blitz-demo.mp4' },
+  { title: 'Manual Creation Demo', url: 'https://media.aftermark.ai/tutorials/manual-creation-demo.mp4' },
+  { title: 'Green Screen', url: 'https://media.aftermark.ai/tutorials/2-green-screen.mp4' },
+  { title: 'Wall of Text', url: 'https://media.aftermark.ai/tutorials/3-wall-of-text.mp4' },
+  { title: 'Hook & Demo', url: 'https://media.aftermark.ai/tutorials/4-hook-demo.mp4' },
+  { title: 'Slideshows', url: 'https://media.aftermark.ai/tutorials/5-slideshows.mp4' },
+  { title: 'Calendar & Library', url: 'https://media.aftermark.ai/tutorials/6-calendar-library.mp4' },
+]
+
+function TutorialVideoCard({ video }) {
+  const videoRef = useRef(null)
+  return (
+    <div
+      style={{
+        flexShrink: 0, width: 220, borderRadius: 14, overflow: 'hidden',
+        background: '#000', border: '1px solid #E5E7EB',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'pointer'
+      }}
+      onMouseEnter={() => videoRef.current?.play()}
+      onMouseLeave={() => { if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0 } }}
+    >
+      <video
+        ref={videoRef}
+        src={video.url}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }}
+      />
+      <div style={{ padding: '10px 12px', background: 'white' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{video.title}</span>
+      </div>
+    </div>
+  )
+}
 
 // Trending card carousel (same style as Content/Blitz)
 function TrendingCard({ video, active }) {
@@ -243,6 +283,24 @@ export default function Home() {
               {action.label}
               <ArrowRight size={14} />
             </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Tutorial Videos */}
+      <div style={{ marginBottom: 40 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>🎥</span>
+          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Tutorial Videos</h2>
+        </div>
+        <div style={{
+          display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8,
+          scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch'
+        }}>
+          {TUTORIAL_VIDEOS.map((vid) => (
+            <div key={vid.url} style={{ scrollSnapAlign: 'start' }}>
+              <TutorialVideoCard video={vid} />
+            </div>
           ))}
         </div>
       </div>
