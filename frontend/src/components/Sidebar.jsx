@@ -19,9 +19,11 @@ const NAV_BOTTOM = [
 ]
 
 export default function Sidebar() {
-  const { user, logout } = useStore()
+  const { user, brand, logout } = useStore()
   const navigate = useNavigate()
   const initials = user?.name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || 'U'
+  const brandInitial = brand?.brandName?.[0]?.toUpperCase() || initials[0]
+  const brandLabel = brand?.brandName || user?.name?.split(' ')[0] || 'Workspace'
 
   return (
     <aside style={{
@@ -56,10 +58,10 @@ export default function Sidebar() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontSize: 10, fontWeight: 700, flexShrink: 0
           }}>
-            {initials[0]}
+            {brandInitial}
           </div>
           <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user?.name?.split(' ')[0] || 'Workspace'}
+            {brandLabel}
           </span>
           <ChevronDown size={12} color="#9CA3AF" />
         </button>

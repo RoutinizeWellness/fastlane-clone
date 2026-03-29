@@ -15,6 +15,25 @@ function getBrandContext(userId) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// GET /content/catalog — returns the full content catalog
+// Currently serves hardcoded data; designed to be backed by a DB later.
+// ---------------------------------------------------------------------------
+const CONTENT_CATALOG = require('../data/contentCatalog');
+
+router.get('/catalog', async (_req, res) => {
+  try {
+    res.json({
+      content: CONTENT_CATALOG,
+      total: CONTENT_CATALOG.length,
+      syncedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('Catalog fetch error:', e);
+    res.status(500).json({ error: 'Failed to load content catalog' });
+  }
+});
+
 router.post('/slideshow', auth, async (req, res) => {
   try {
     const { topic, platform, tone } = req.body;

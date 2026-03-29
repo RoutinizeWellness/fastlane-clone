@@ -22,6 +22,13 @@ function PrivateRoute({ children }) {
   return token ? children : <Navigate to="/login" replace />
 }
 
+function OnboardedRoute({ children }) {
+  const { token, onboardingComplete } = useStore()
+  if (!token) return <Navigate to="/login" replace />
+  if (!onboardingComplete) return <Navigate to="/onboarding" replace />
+  return children
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -29,7 +36,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
-        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+        <Route path="/" element={<OnboardedRoute><Layout /></OnboardedRoute>}>
           <Route index element={<Navigate to="/home" replace />} />
           <Route path="home" element={<Home />} />
           <Route path="content" element={<Content />} />

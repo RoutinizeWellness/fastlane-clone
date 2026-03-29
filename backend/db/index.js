@@ -17,6 +17,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS brand_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER UNIQUE,
+    website TEXT DEFAULT '',
     brand_name TEXT DEFAULT '',
     industry TEXT DEFAULT '',
     description TEXT DEFAULT '',
@@ -24,6 +25,7 @@ db.exec(`
     colors TEXT DEFAULT '["#FF6B35","#1a1a1a"]',
     pillars TEXT DEFAULT '["Education","Entertainment","Inspiration"]',
     audience TEXT DEFAULT '{}',
+    onboarding_complete INTEGER DEFAULT 0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );

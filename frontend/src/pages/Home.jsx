@@ -52,18 +52,21 @@ function TrendingCard({ video, active }) {
 }
 
 export default function Home() {
-  const { user } = useStore()
+  const { user, brand } = useStore()
   const [trending, setTrending] = useState([])
   const [trendIdx, setTrendIdx] = useState(2)
   const [loading, setLoading] = useState(true)
 
-  // Quickstart steps
+  const brandName = brand?.brandName || ''
+  const industry = brand?.industry || ''
+
+  // Quickstart steps — personalized with brand context
   const steps = [
     { label: 'Swipe content in Blitz', done: true },
     { label: 'Connect your account', done: true },
-    { label: 'Create your first content', done: false, action: true },
+    { label: brandName ? `Create your first ${brandName} content` : 'Create your first content', done: false, action: true },
     { label: 'Schedule a post', done: false, action: true },
-    { label: 'Upload a demo video', done: false, action: true },
+    { label: brandName ? `Upload a ${brandName} demo video` : 'Upload a demo video', done: false, action: true },
     { label: 'Make your first post', done: false },
   ]
   const doneCount = steps.filter(s => s.done).length
@@ -110,7 +113,7 @@ export default function Home() {
           <path d="M2 2h36v6H10v5h20v6H10v10H2V2z" fill="#111827"/>
         </svg>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', letterSpacing: '-0.5px', margin: 0 }}>
-          Let's get your product seen.
+          {brandName ? `Welcome back, ${brandName}` : "Let's get your product seen."}
         </h1>
       </div>
 
@@ -159,7 +162,7 @@ export default function Home() {
       <div style={{ marginBottom: 40 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 18 }}>📈</span>
-          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>Trending Content</h2>
+          <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: 0 }}>{industry ? `Trending in ${industry}` : 'Trending Content'}</h2>
         </div>
         {loading ? (
           <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

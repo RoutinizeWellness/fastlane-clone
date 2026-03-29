@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Settings, X, Check, Bookmark, Download } from 'lucide-react'
+import { Settings, X, Check, Bookmark, Download, Sparkles } from 'lucide-react'
 import { VIRAL_CONTENT, CONTENT_TAGS, fmtNum, getByType } from '../lib/viralContent'
 import { saveToLibrary, downloadContent, bookmarkContent } from '../lib/contentActions'
+import { useStore } from '../store'
+import { adaptCaption, generatePrompt } from '../lib/brandContext'
 
 // Shuffle for variety
 const SHUFFLED = [...VIRAL_CONTENT].sort(() => Math.random() - 0.5)
@@ -25,6 +27,7 @@ const THEMES = [
 
 export default function Blitz() {
   const navigate = useNavigate()
+  const { brand } = useStore()
   const [idx, setIdx] = useState(0)
   const [paused, setPaused] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
@@ -34,7 +37,11 @@ export default function Blitz() {
   const [selectedTheme, setSelectedTheme] = useState(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [toast, setToast] = useState(null)
+  const [adaptedCaption, setAdaptedCaption] = useState(null)
+  const [adapting, setAdapting] = useState(false)
   const timerRef = useRef(null)
+
+  const hasBrand = brand && brand.brandName
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
@@ -74,18 +81,49 @@ export default function Blitz() {
 
   const openRemixModal = (video) => {
     setModalVideo(video)
-    setSelectedTheme(null)
+    setAdaptedCaption(null)
+    // Pre-select theme based on brand industry if available
+    if (hasBrand && brand.industry) {
+      const industryLower = brand.industry.toLowerCase()
+      const match = THEMES.find(t => industryLower.includes(t.id.replace('-', ' ')) || t.label.toLowerCase().includes(industryLower))
+      setSelectedTheme(match ? match.id : null)
+    } else {
+      setSelectedTheme(null)
+    }
     setModalVisible(true)
   }
 
   const closeModal = () => {
     setModalVisible(false)
-    setTimeout(() => setModalVideo(null), 200)
+    setTimeout(() => { setModalVideo(null); setAdaptedCaption(null) }, 200)
+  }
+
+  const handleAdaptToBrand = () => {
+    if (!modalVideo || !hasBrand) return
+    setAdapting(true)
+    // Simulate a brief processing delay for UX
+    setTimeout(() => {
+      const adapted = adaptCaption(modalVideo.caption || '', brand)
+      setAdaptedCaption(adapted)
+      setAdapting(false)
+    }, 400)
   }
 
   const handleContinue = () => {
     if (!selectedTheme || !modalVideo) return
-    navigate(`/content?videoId=${modalVideo.id}&theme=${selectedTheme}&mode=remix`)
+    const params = new URLSearchParams({
+      videoId: modalVideo.id,
+      theme: selectedTheme,
+      mode: 'remix',
+    })
+    if (hasBrand) {
+      params.set('brand', brand.brandName)
+      if (brand.productName) params.set('product', brand.productName)
+    }
+    if (adaptedCaption) {
+      params.set('caption', adaptedCaption)
+    }
+    navigate(`/content?${params.toString()}`)
   }
 
   const TYPES = [
@@ -281,10 +319,60 @@ export default function Blitz() {
                   fontSize: 13, color: '#6B7280', lineHeight: 1.5, margin: 0,
                   display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>
-                  {modalVideo.caption}
+                  {adaptedCaption || modalVideo.caption}
                 </p>
+                {/* Brand context badge */}
+                {hasBrand && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: 4, background: '#EA580C',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontSize: 9, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {brand.brandName[0].toUpperCase()}
+                    </div>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500 }}>
+                      Remixing for {brand.brandName}{brand.productName && brand.productName !== brand.brandName ? ` - ${brand.productName}` : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Adapt to my brand button */}
+            {hasBrand && (
+              <button
+                onClick={handleAdaptToBrand}
+                disabled={adapting}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  width: '100%', padding: '10px 0', borderRadius: 10,
+                  border: '1px solid #E5E7EB',
+                  background: adaptedCaption ? '#F0FDF4' : '#FAFAFA',
+                  color: adaptedCaption ? '#16A34A' : '#374151',
+                  fontSize: 13, fontWeight: 600, cursor: adapting ? 'wait' : 'pointer',
+                  marginBottom: 20, transition: 'all 0.15s ease',
+                }}
+              >
+                <Sparkles size={14} />
+                {adapting ? 'Adapting...' : adaptedCaption ? 'Caption adapted to ' + brand.brandName : 'Adapt to my brand'}
+              </button>
+            )}
+
+            {/* Caption suggestion with brand context */}
+            {hasBrand && adaptedCaption && (
+              <div style={{
+                background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10,
+                padding: '10px 14px', marginBottom: 20,
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#92400E', letterSpacing: '0.05em', marginBottom: 4 }}>
+                  SUGGESTED CAPTION FOR {brand.brandName.toUpperCase()}
+                </div>
+                <p style={{ fontSize: 12, color: '#78350F', lineHeight: 1.5, margin: 0 }}>
+                  {adaptedCaption}
+                </p>
+              </div>
+            )}
 
             {/* Theme label */}
             <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 12 }}>

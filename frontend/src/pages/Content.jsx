@@ -1,10 +1,308 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save, Bookmark, Download } from 'lucide-react'
+import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save, Bookmark, Download, Type, Palette, AlignLeft, AlignCenter, AlignRight, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import api from '../lib/api'
 import { VIRAL_CONTENT, CONTENT_TAGS } from '../lib/viralContent'
 import { formatNumber } from '../lib/utils'
 import { saveToLibrary, downloadContent } from '../lib/contentActions'
+import { useStore } from '../store'
+
+const TEXT_FONTS = [
+  { label: 'Inter', value: 'Inter, sans-serif' },
+  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+  { label: 'Poppins', value: 'Poppins, sans-serif' },
+  { label: 'Oswald', value: 'Oswald, sans-serif' },
+  { label: 'Playfair Display', value: "'Playfair Display', serif" },
+  { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+]
+
+const DEFAULT_TEXT_STYLE = {
+  fontFamily: 'Inter, sans-serif',
+  color: '#ffffff',
+  fontSize: 14,
+  position: 'center', // top | center | bottom
+  textAlign: 'center', // left | center | right
+}
+
+/* ── Brand placeholder replacement ───────────────────── */
+function replaceBrandPlaceholders(text, brand) {
+  if (!text || !brand) return text || ''
+  return text
+    .replace(/\{brandName\}/gi, brand.name || brand.brandName || 'Your Brand')
+    .replace(/\{product\}/gi, brand.product || brand.mainProduct || 'your product')
+    .replace(/\{benefit\}/gi, brand.benefit || brand.mainBenefit || 'amazing results')
+}
+
+/* ── Get default text for a video ────────────────────── */
+function getDefaultText(video, slideIdx) {
+  if (!video) return ''
+  if (video.contentType === 'slideshow' && video.slides) {
+    const slide = video.slides[slideIdx || 0]
+    return slide?.text || video.caption || ''
+  }
+  if (video.contentType === 'wall-of-text') return video.textOverlay || video.caption || ''
+  if (video.contentType === 'video-hook-and-demo') return video.hookText || video.caption || ''
+  if (video.contentType === 'green-screen-meme') {
+    const top = video.topText || video.caption?.split(' ').slice(0, Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ') || ''
+    const bottom = video.bottomText || video.caption?.split(' ').slice(Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ') || ''
+    return top + '\n---\n' + bottom
+  }
+  return video.caption || ''
+}
+
+/* ── Floating text edit toolbar ──────────────────────── */
+function TextEditToolbar({ style, onChange, onClose }) {
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: -48, left: '50%', transform: 'translateX(-50%)',
+        background: '#1F2937', borderRadius: 10, padding: '6px 8px',
+        display: 'flex', alignItems: 'center', gap: 6, zIndex: 100,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
+        minWidth: 320,
+      }}
+    >
+      {/* Font family */}
+      <select
+        value={style.fontFamily}
+        onChange={e => onChange({ ...style, fontFamily: e.target.value })}
+        style={{
+          background: '#374151', color: 'white', border: 'none', borderRadius: 6,
+          padding: '3px 4px', fontSize: 10, cursor: 'pointer', maxWidth: 80,
+          fontFamily: style.fontFamily,
+        }}
+      >
+        {TEXT_FONTS.map(f => (
+          <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
+        ))}
+      </select>
+
+      {/* Separator */}
+      <div style={{ width: 1, height: 18, background: '#4B5563' }} />
+
+      {/* Font size */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <button onClick={() => onChange({ ...style, fontSize: Math.max(8, style.fontSize - 1) })}
+          style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 2, display: 'flex' }}>
+          <Minus size={10} />
+        </button>
+        <span style={{ color: 'white', fontSize: 10, minWidth: 18, textAlign: 'center' }}>{style.fontSize}</span>
+        <button onClick={() => onChange({ ...style, fontSize: Math.min(32, style.fontSize + 1) })}
+          style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 2, fontSize: 12, fontWeight: 700, lineHeight: 1 }}>
+          +
+        </button>
+      </div>
+
+      {/* Separator */}
+      <div style={{ width: 1, height: 18, background: '#4B5563' }} />
+
+      {/* Color picker */}
+      <label style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+        <div style={{ width: 16, height: 16, borderRadius: 4, border: '2px solid #6B7280', background: style.color }} />
+        <input
+          type="color"
+          value={style.color}
+          onChange={e => onChange({ ...style, color: e.target.value })}
+          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+        />
+      </label>
+
+      {/* Separator */}
+      <div style={{ width: 1, height: 18, background: '#4B5563' }} />
+
+      {/* Text alignment */}
+      {['left', 'center', 'right'].map(a => (
+        <button key={a} onClick={() => onChange({ ...style, textAlign: a })}
+          style={{
+            background: style.textAlign === a ? '#4B5563' : 'none', border: 'none',
+            borderRadius: 4, padding: 3, cursor: 'pointer', display: 'flex',
+            color: style.textAlign === a ? 'white' : '#9CA3AF',
+          }}>
+          {a === 'left' ? <AlignLeft size={11} /> : a === 'center' ? <AlignCenter size={11} /> : <AlignRight size={11} />}
+        </button>
+      ))}
+
+      {/* Separator */}
+      <div style={{ width: 1, height: 18, background: '#4B5563' }} />
+
+      {/* Position: top / center / bottom */}
+      {['top', 'center', 'bottom'].map(p => (
+        <button key={p} onClick={() => onChange({ ...style, position: p })}
+          style={{
+            background: style.position === p ? '#4B5563' : 'none', border: 'none',
+            borderRadius: 4, padding: 3, cursor: 'pointer', display: 'flex',
+            color: style.position === p ? 'white' : '#9CA3AF',
+          }}
+          title={`Position: ${p}`}
+        >
+          {p === 'top' ? <ArrowUp size={11} /> : p === 'bottom' ? <ArrowDown size={11} /> : <Type size={11} />}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ── Editable text overlay on content cards ──────────── */
+function EditableTextOverlay({ videoId, text, textStyle, isEditing, onStartEdit, onTextChange, onStyleChange, onStopEdit, brand, contentType }) {
+  const ref = useRef(null)
+  const displayText = replaceBrandPlaceholders(text, brand)
+
+  // Auto-focus the contentEditable element when editing starts
+  useEffect(() => {
+    if (isEditing && ref.current) {
+      ref.current.focus()
+      // Place cursor at end of text
+      const sel = window.getSelection()
+      const range = document.createRange()
+      range.selectNodeContents(ref.current)
+      range.collapse(false)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+  }, [isEditing])
+
+  const positionStyles = {
+    top: { alignItems: 'flex-start', paddingTop: 14 },
+    center: { alignItems: 'center' },
+    bottom: { alignItems: 'flex-end', paddingBottom: 52 },
+  }
+
+  const bgGradients = {
+    top: 'linear-gradient(rgba(0,0,0,0.6) 0%, transparent 70%)',
+    center: 'linear-gradient(transparent 10%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.35) 60%, transparent 90%)',
+    bottom: 'linear-gradient(transparent 30%, rgba(0,0,0,0.7))',
+  }
+
+  // For green-screen, split on --- to get top/bottom
+  const isGreenScreen = contentType === 'green-screen-meme'
+  const parts = isGreenScreen ? displayText.split('\n---\n') : [displayText]
+
+  if (isGreenScreen) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+        {/* Top text */}
+        <div
+          onClick={e => { e.stopPropagation(); onStartEdit() }}
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            padding: '14px 10px',
+            background: 'linear-gradient(rgba(0,0,0,0.6), transparent)',
+            textAlign: textStyle.textAlign || 'center',
+            pointerEvents: 'auto', cursor: 'text',
+          }}
+        >
+          <p
+            ref={ref}
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={e => {
+              const fullText = e.currentTarget.textContent + '\n---\n' + (parts[1] || '')
+              onTextChange(fullText)
+              onStopEdit()
+            }}
+            style={{
+              color: textStyle.color, fontSize: textStyle.fontSize, fontWeight: 900, lineHeight: 1.2,
+              margin: 0, textTransform: 'uppercase', fontFamily: textStyle.fontFamily,
+              textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
+              letterSpacing: 0.5, outline: 'none',
+              border: isEditing ? '1px dashed rgba(255,255,255,0.5)' : 'none',
+              borderRadius: 4, padding: isEditing ? 2 : 0,
+            }}
+          >
+            {parts[0] || ''}
+          </p>
+        </div>
+        {/* Bottom text */}
+        <div
+          onClick={e => { e.stopPropagation(); onStartEdit() }}
+          style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '10px 10px 52px',
+            background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+            textAlign: textStyle.textAlign || 'center',
+            pointerEvents: 'auto', cursor: 'text',
+          }}
+        >
+          <p
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={e => {
+              const fullText = (parts[0] || '') + '\n---\n' + e.currentTarget.textContent
+              onTextChange(fullText)
+              onStopEdit()
+            }}
+            style={{
+              color: textStyle.color, fontSize: textStyle.fontSize, fontWeight: 900, lineHeight: 1.2,
+              margin: 0, textTransform: 'uppercase', fontFamily: textStyle.fontFamily,
+              textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
+              letterSpacing: 0.5, outline: 'none',
+              border: isEditing ? '1px dashed rgba(255,255,255,0.5)' : 'none',
+              borderRadius: 4, padding: isEditing ? 2 : 0,
+            }}
+          >
+            {parts[1] || ''}
+          </p>
+        </div>
+        {isEditing && (
+          <TextEditToolbar style={textStyle} onChange={onStyleChange} onClose={onStopEdit} />
+        )}
+      </div>
+    )
+  }
+
+  // Normal single-text overlay for slideshow / wall-of-text / video-hook
+  const pos = textStyle.position || 'center'
+  return (
+    <div
+      onClick={e => { e.stopPropagation(); onStartEdit() }}
+      style={{
+        position: 'absolute', inset: 0, zIndex: 4,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        ...positionStyles[pos],
+        padding: '14px 12px',
+        background: bgGradients[pos],
+        textAlign: textStyle.textAlign || 'center',
+        cursor: 'text',
+      }}
+    >
+      {contentType === 'video-hook-and-demo' && (
+        <span style={{
+          alignSelf: 'flex-start', marginBottom: 6,
+          padding: '3px 10px', borderRadius: 9999,
+          background: 'rgba(234,88,12,0.9)',
+          color: 'white', fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+          textTransform: 'uppercase', pointerEvents: 'none',
+        }}>Hook</span>
+      )}
+      <p
+        ref={ref}
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onBlur={e => { onTextChange(e.currentTarget.textContent); onStopEdit() }}
+        style={{
+          color: textStyle.color,
+          fontSize: textStyle.fontSize,
+          fontWeight: contentType === 'wall-of-text' ? 600 : 900,
+          lineHeight: contentType === 'wall-of-text' ? 1.5 : 1.3,
+          margin: 0,
+          fontFamily: textStyle.fontFamily,
+          textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+          ...(isEditing ? { overflow: 'auto', maxHeight: '80%' } : { display: '-webkit-box', WebkitLineClamp: contentType === 'wall-of-text' ? 7 : 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+          outline: 'none',
+          border: isEditing ? '1px dashed rgba(255,255,255,0.5)' : 'none',
+          borderRadius: 4, padding: isEditing ? 2 : 0,
+          textAlign: textStyle.textAlign || 'center',
+        }}
+      >
+        {displayText}
+      </p>
+      {isEditing && (
+        <TextEditToolbar style={textStyle} onChange={onStyleChange} onClose={onStopEdit} />
+      )}
+    </div>
+  )
+}
 
 const TABS = [
   { id: 'slideshow', label: 'Slideshow', path: 'slideshow' },
@@ -29,7 +327,7 @@ const TAG_COLORS = {
 }
 
 /* ── 3D stacked carousel ─────────────────────────────── */
-function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, onSlideNav, onSave, onDownload }) {
+function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, onSlideNav, onSave, onDownload, textOverrides, textStyles, editingVideoId, onStartEdit, onTextChange, onStyleChange, onStopEdit, brand }) {
   const prev2 = videos[(activeIdx - 2 + videos.length) % videos.length]
   const prev1 = videos[(activeIdx - 1 + videos.length) % videos.length]
   const current = videos[activeIdx]
@@ -102,23 +400,27 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                         alt={slide.text || ''}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
-                      {/* Text overlay on current slide */}
-                      {isCenter && slide.text && (
-                        <div style={{
-                          position: 'absolute', inset: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          padding: '20px 14px 52px', textAlign: 'center',
-                          background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.5))',
-                          pointerEvents: 'none',
-                        }}>
-                          <p style={{
-                            color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.3,
-                            margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-                            display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                          }}>
-                            {slide.text}
-                          </p>
-                        </div>
+                      {/* Text overlay on current slide — uses EditableTextOverlay */}
+                      {isCenter && (
+                        (() => {
+                          const textKey = `${video.id}-slide-${curSlideIdx}`
+                          const currentText = textOverrides?.[textKey] ?? slide.text ?? ''
+                          const currentStyle = textStyles?.[video.id] || DEFAULT_TEXT_STYLE
+                          return (
+                            <EditableTextOverlay
+                              videoId={video.id}
+                              text={currentText}
+                              textStyle={currentStyle}
+                              isEditing={editingVideoId === video.id}
+                              onStartEdit={() => onStartEdit && onStartEdit(video.id)}
+                              onTextChange={t => onTextChange && onTextChange(textKey, t)}
+                              onStyleChange={s => onStyleChange && onStyleChange(video.id, s)}
+                              onStopEdit={() => onStopEdit && onStopEdit()}
+                              brand={brand}
+                              contentType="slideshow"
+                            />
+                          )
+                        })()
                       )}
                       {/* Prev / Next slide buttons (center card only) */}
                       {isCenter && video.slides.length > 1 && (
@@ -169,7 +471,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                 })()
               ) : (
                 <>
-                  {video.videoUrl && (
+                  {video.videoUrl ? (
                     <video
                       key={video.id}
                       src={video.videoUrl}
@@ -180,125 +482,44 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                       playsInline
                       style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                     />
+                  ) : video.thumbnail ? (
+                    <img
+                      src={video.thumbnail}
+                      alt={video.caption || ''}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1a1a2e, #16213e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>No preview</span>
+                    </div>
                   )}
                 </>
               )}
 
-              {/* Content-type-specific overlay (center card) — slideshow text handled above */}
-              {isCenter && video.contentType === 'wall-of-text' && (
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  padding: '16px 10px 52px',
-                  background: 'linear-gradient(transparent, rgba(0,0,0,0.85) 40%)'
-                }}>
-                  <p style={{
-                    color: 'white', fontSize: 10, fontWeight: 600, lineHeight: 1.5,
-                    margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-                    display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                  }}>
-                    {video.textOverlay || video.caption}
-                  </p>
-                  {video.subCaption && (
-                    <p style={{
-                      color: 'rgba(255,255,255,0.75)', fontSize: 9, fontWeight: 400,
-                      margin: '4px 0 0', lineHeight: 1.4,
-                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                    }}>
-                      {video.subCaption}
-                    </p>
-                  )}
-                </div>
-              )}
-              {isCenter && video.contentType === 'video-hook-and-demo' && (
-                <>
-                  <div style={{
-                    position: 'absolute', top: 10, left: 10, right: 10,
-                    display: 'flex', flexDirection: 'column', gap: 6
-                  }}>
-                    <span style={{
-                      alignSelf: 'flex-start',
-                      padding: '3px 10px', borderRadius: 9999,
-                      background: 'rgba(234,88,12,0.9)',
-                      color: 'white', fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
-                      textTransform: 'uppercase'
-                    }}>
-                      Hook
-                    </span>
-                    <p style={{
-                      color: 'white', fontSize: video.hookText ? 13 : 11, fontWeight: video.hookText ? 800 : 700, lineHeight: 1.3,
-                      margin: 0, textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                    }}>
-                      {video.hookText || video.caption}
-                    </p>
-                  </div>
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    padding: '24px 12px 52px',
-                    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))'
-                  }}>
-                    {video.subCaption && (
-                      <p style={{
-                        color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: 400,
-                        margin: 0, lineHeight: 1.3,
-                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                      }}>
-                        {video.subCaption}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-              {isCenter && video.contentType === 'green-screen-meme' && (
-                <>
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0,
-                    padding: '14px 10px',
-                    background: 'linear-gradient(rgba(0,0,0,0.7), transparent)',
-                    textAlign: 'center'
-                  }}>
-                    <p style={{
-                      color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.2,
-                      margin: 0, textTransform: 'uppercase',
-                      textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
-                      letterSpacing: 0.5
-                    }}>
-                      {video.topText || video.caption?.split(' ').slice(0, Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ')}
-                    </p>
-                  </div>
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                    padding: '10px 10px 52px',
-                    background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-                    textAlign: 'center'
-                  }}>
-                    <p style={{
-                      color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.2,
-                      margin: 0, textTransform: 'uppercase',
-                      textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
-                      letterSpacing: 0.5
-                    }}>
-                      {video.bottomText || video.caption?.split(' ').slice(Math.ceil((video.caption?.split(' ').length || 0) / 2)).join(' ')}
-                    </p>
-                  </div>
-                </>
-              )}
-              {/* Fallback caption for center card with unknown/missing contentType */}
-              {isCenter && !['slideshow','wall-of-text','video-hook-and-demo','green-screen-meme'].includes(video.contentType) && (
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  padding: '40px 12px 52px',
-                  background: 'linear-gradient(transparent, rgba(0,0,0,0.8))'
-                }}>
-                  <p style={{
-                    color: 'white', fontSize: 13, fontWeight: 700, lineHeight: 1.3,
-                    margin: 0, textShadow: '0 1px 3px rgba(0,0,0,0.7)',
-                    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                  }}>
-                    {video.caption}
-                  </p>
-                </div>
-              )}
+              {/* Content-type-specific overlay (center card) — unified editable text */}
+              {isCenter && video.contentType !== 'slideshow' && (() => {
+                const textKey = video.id
+                const currentText = textOverrides?.[textKey] ?? getDefaultText(video)
+                const currentStyle = textStyles?.[video.id] || {
+                  ...DEFAULT_TEXT_STYLE,
+                  fontSize: video.contentType === 'wall-of-text' ? 10 : video.contentType === 'green-screen-meme' ? 14 : 13,
+                  position: video.contentType === 'video-hook-and-demo' ? 'top' : video.contentType === 'wall-of-text' ? 'bottom' : 'center',
+                }
+                return (
+                  <EditableTextOverlay
+                    videoId={video.id}
+                    text={currentText}
+                    textStyle={currentStyle}
+                    isEditing={editingVideoId === video.id}
+                    onStartEdit={() => onStartEdit && onStartEdit(video.id)}
+                    onTextChange={t => onTextChange && onTextChange(textKey, t)}
+                    onStyleChange={s => onStyleChange && onStyleChange(video.id, s)}
+                    onStopEdit={() => onStopEdit && onStopEdit()}
+                    brand={brand}
+                    contentType={video.contentType}
+                  />
+                )
+              })()}
 
               {/* Side card label (non-center) — simplified with type indicator */}
               {!isCenter && Math.abs(offset) === 1 && video.caption && (
@@ -476,6 +697,10 @@ function TrendingPanel({ tab, onRemix, onSave, onDownload }) {
   const [activeView, setActiveView] = useState('trending')
   const [activeTag, setActiveTag] = useState(null)
   const [slideIdxMap, setSlideIdxMap] = useState({})
+  const [textOverrides, setTextOverrides] = useState({})
+  const [textStyles, setTextStyles] = useState({})
+  const [editingVideoId, setEditingVideoId] = useState(null)
+  const brand = useStore(s => s.brand)
 
   // Reset carousel to index 0 when tab changes
   useEffect(() => {
@@ -599,6 +824,14 @@ function TrendingPanel({ tab, onRemix, onSave, onDownload }) {
             onSlideNav={handleSlideNav}
             onSave={onSave}
             onDownload={onDownload}
+            textOverrides={textOverrides}
+            textStyles={textStyles}
+            editingVideoId={editingVideoId}
+            onStartEdit={id => setEditingVideoId(id)}
+            onTextChange={(key, text) => setTextOverrides(prev => ({ ...prev, [key]: text }))}
+            onStyleChange={(id, style) => setTextStyles(prev => ({ ...prev, [id]: style }))}
+            onStopEdit={() => setEditingVideoId(null)}
+            brand={brand}
           />
         </div>
       )}
