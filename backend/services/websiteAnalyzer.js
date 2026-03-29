@@ -1,0 +1,128 @@
+const axios = require('axios');
+const db = require('../db');
+const { callAI } = require('./ai');
+
+async function analyzeWebsite(url) {
+  // Normalize URL
+  if (!url.startsWith('http')) url = 'https://' + url;
+
+  // 1. Fetch the page
+  let html = '';
+  try {
+    const resp = await axios.get(url, {
+      timeout: 10000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FastlaneBot/1.0)' },
+      maxRedirects: 5
+    });
+    html = typeof resp.data === 'string' ? resp.data : '';
+  } catch (err) {
+    throw new Error('Could not fetch website: ' + (err.message || 'Unknown error'));
+  }
+
+  // 2. Extract content from HTML
+  const extracted = extractFromHTML(html);
+
+  // 3. Send to AI for brand analysis
+  const systemPrompt = `Analyze this website and extract brand information. Return JSON with: brand_name (string), product_type (e.g. SaaS, E-Commerce, Agency, Course, Blog, Marketplace), industry (string), tone (professional/casual/bold/friendly), target_audience (string describing who the product is for), key_terms (array of 5-8 keywords), tagline (string), brand_colors (array of hex colors found or suggested based on the brand). Return ONLY valid JSON, no markdown.`;
+
+  const userPrompt = `Website URL: ${url}
+Page Title: ${extracted.title}
+Meta Description: ${extracted.metaDescription}
+OG Title: ${extracted.ogTitle}
+OG Description: ${extracted.ogDescription}
+Visible Text (first 2000 chars): ${extracted.visibleText}
+Colors found in styles: ${extracted.colors.join(', ') || 'none'}`;
+
+  const raw = await callAI(systemPrompt, userPrompt);
+  if (raw) {
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]);
+    } catch (e) {
+      // Parse failed, fall through to mock
+    }
+  }
+
+  // Mock fallback when AI is unavailable
+  return {
+    brand_name: extracted.title || url.replace(/https?:\/\//, '').split('/')[0].split('.')[0],
+    product_type: 'SaaS',
+    industry: 'Technology',
+    tone: 'professional',
+    target_audience: 'Professionals and businesses',
+    key_terms: ['productivity', 'growth', 'platform', 'solution', 'tools'],
+    tagline: extracted.metaDescription || 'Building the future',
+    brand_colors: extracted.colors.length > 0 ? extracted.colors.slice(0, 4) : ['#2563EB', '#1E40AF', '#111827']
+  };
+}
+
+function extractFromHTML(html) {
+  const result = {
+    title: '',
+    metaDescription: '',
+    ogTitle: '',
+    ogDescription: '',
+    visibleText: '',
+    colors: []
+  };
+
+  // Title
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) result.title = titleMatch[1].trim();
+
+  // Meta description
+  const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+  if (metaDescMatch) result.metaDescription = metaDescMatch[1].trim();
+
+  // OG title
+  const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:title["']/i);
+  if (ogTitleMatch) result.ogTitle = ogTitleMatch[1].trim();
+
+  // OG description
+  const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:description["']/i);
+  if (ogDescMatch) result.ogDescription = ogDescMatch[1].trim();
+
+  // Extract visible text (strip tags, scripts, styles)
+  let text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  result.visibleText = text.substring(0, 2000);
+
+  // Extract hex colors from inline styles
+  const colorMatches = html.match(/#[0-9a-fA-F]{3,8}\b/g);
+  if (colorMatches) {
+    const unique = [...new Set(colorMatches.map(c => c.toUpperCase()))];
+    result.colors = unique.filter(c => c.length === 4 || c.length === 7).slice(0, 10);
+  }
+
+  return result;
+}
+
+function saveBrandAnalysis(userId, url, data) {
+  // Remove old analysis for this user+url
+  db.prepare('DELETE FROM brand_analysis WHERE user_id = ? AND website_url = ?').run(userId, url);
+
+  db.prepare(`INSERT INTO brand_analysis (user_id, website_url, brand_name, product_type, industry, tone, target_audience, key_terms, tagline, brand_colors, analyzed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
+    .run(
+      userId,
+      url,
+      data.brand_name || '',
+      data.product_type || '',
+      data.industry || '',
+      data.tone || '',
+      data.target_audience || '',
+      JSON.stringify(data.key_terms || []),
+      data.tagline || '',
+      JSON.stringify(data.brand_colors || [])
+    );
+}
+
+module.exports = { analyzeWebsite, saveBrandAnalysis };

@@ -94,4 +94,42 @@ router.post('/blitz', auth, async (req, res) => {
   }
 });
 
+// POST /remix — rewrite text for user's brand
+router.post('/remix', auth, async (req, res) => {
+  try {
+    const { originalText, contentType, brandContext } = req.body;
+    if (!originalText) return res.status(400).json({ error: 'originalText is required' });
+
+    // Also pull stored brand config for the user
+    const storedBrand = getBrandContext(req.user.id);
+    const mergedBrand = brandContext || storedBrand;
+
+    let brandLine = '';
+    if (mergedBrand) {
+      const parts = [];
+      if (mergedBrand.brand_name) parts.push(`Brand: ${mergedBrand.brand_name}`);
+      if (mergedBrand.industry) parts.push(`Industry: ${mergedBrand.industry}`);
+      if (mergedBrand.description) parts.push(`About: ${mergedBrand.description}`);
+      if (mergedBrand.tone) parts.push(`Preferred tone: ${mergedBrand.tone}`);
+      if (mergedBrand.website_url) parts.push(`Website: ${mergedBrand.website_url}`);
+      brandLine = parts.join('\n');
+    }
+
+    const systemPrompt = `You are an expert social media copywriter. Rewrite the given text to match the user's brand voice and business. Keep the same format, length, and energy but adapt it to their specific brand/niche. Return ONLY the rewritten text, no explanations.`;
+    const userPrompt = `Original text (${contentType || 'content'}):\n"${originalText}"\n\n${brandLine ? `Brand context:\n${brandLine}` : 'Adapt this for a generic business audience.'}\n\nRewrite this text for the brand above. Keep similar length and format.`;
+
+    const result = await ai.callAI ? ai.callAI(systemPrompt, userPrompt) : null;
+
+    if (result) {
+      res.json({ adaptedText: result.replace(/^["']|["']$/g, '').trim() });
+    } else {
+      // Fallback: return original with a note
+      res.json({ adaptedText: originalText + ' [adapted for your brand]' });
+    }
+  } catch (e) {
+    console.error('Remix error:', e);
+    res.status(500).json({ error: 'Remix failed' });
+  }
+});
+
 module.exports = router;

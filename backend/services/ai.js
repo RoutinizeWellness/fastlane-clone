@@ -31,9 +31,19 @@ function buildBrandLine(brandContext) {
   if (!brandContext) return '';
   const parts = [];
   if (brandContext.brand_name) parts.push(`Brand: ${brandContext.brand_name}`);
+  if (brandContext.website_url) parts.push(`Website: ${brandContext.website_url}`);
   if (brandContext.industry) parts.push(`Industry: ${brandContext.industry}`);
+  if (brandContext.product_type) parts.push(`Product type: ${brandContext.product_type}`);
   if (brandContext.description) parts.push(`About: ${brandContext.description}`);
   if (brandContext.tone) parts.push(`Preferred tone: ${brandContext.tone}`);
+  if (brandContext.target_audience) parts.push(`Target audience: ${brandContext.target_audience}`);
+  if (brandContext.key_terms) {
+    try {
+      const kt = typeof brandContext.key_terms === 'string' ? JSON.parse(brandContext.key_terms) : brandContext.key_terms;
+      if (Array.isArray(kt) && kt.length > 0) parts.push(`Key terms/topics: ${kt.join(', ')}`);
+    } catch {}
+  }
+  if (brandContext.tagline) parts.push(`Tagline: ${brandContext.tagline}`);
   if (brandContext.pillars) {
     try {
       const p = typeof brandContext.pillars === 'string' ? JSON.parse(brandContext.pillars) : brandContext.pillars;
@@ -43,10 +53,10 @@ function buildBrandLine(brandContext) {
   if (brandContext.audience) {
     try {
       const a = typeof brandContext.audience === 'string' ? JSON.parse(brandContext.audience) : brandContext.audience;
-      if (a && typeof a === 'object' && Object.keys(a).length > 0) parts.push(`Target audience: ${JSON.stringify(a)}`);
+      if (a && typeof a === 'object' && Object.keys(a).length > 0) parts.push(`Target audience demographics: ${JSON.stringify(a)}`);
     } catch {}
   }
-  return parts.length ? `\n\nBRAND CONTEXT (personalize content to this brand):\n${parts.join('\n')}` : '';
+  return parts.length ? `\n\nBRAND CONTEXT (personalize ALL content to this specific brand and its business — reference their actual products, audience, and industry):\n${parts.join('\n')}` : '';
 }
 
 // --- MOCK SLIDESHOW SETS ---
@@ -317,4 +327,4 @@ async function generateBlitz({ topic, platforms, count, brandContext }) {
   return results;
 }
 
-module.exports = { generateSlideshow, generateWallOfText, generateVideoHook, generateGreenScreen, generateBlitz };
+module.exports = { callAI, generateSlideshow, generateWallOfText, generateVideoHook, generateGreenScreen, generateBlitz };

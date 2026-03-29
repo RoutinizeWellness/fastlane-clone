@@ -67,6 +67,22 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS brand_analysis (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    website_url TEXT,
+    brand_name TEXT,
+    product_type TEXT,
+    industry TEXT,
+    tone TEXT,
+    target_audience TEXT,
+    key_terms TEXT,
+    tagline TEXT,
+    brand_colors TEXT,
+    analyzed_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS bookmarks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -115,6 +131,13 @@ if (!existing) {
       stmt.run(userId, dateStr, p, v, Math.round(v * 0.08), Math.round(v * 0.02), Math.round(v * 0.01), 1000 + (90 - i) * 15 + Math.round(Math.random() * 20));
     }
   }
+}
+
+// Add website_url column to brand_config if not exists
+try {
+  db.exec(`ALTER TABLE brand_config ADD COLUMN website_url TEXT DEFAULT ''`);
+} catch (e) {
+  // Column already exists, ignore
 }
 
 module.exports = db;
