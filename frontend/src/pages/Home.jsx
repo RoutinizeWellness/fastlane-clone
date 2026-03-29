@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle2, Circle, BarChart3, Eye, TrendingUp, CalendarDays, Zap, Sparkles, Image, Type, Film, Monitor, Users, BookOpen } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Circle, BarChart3, Eye, TrendingUp, CalendarDays, Zap, Sparkles, Image, Type, Film, Monitor, Users, BookOpen, Play } from 'lucide-react'
 import api from '../lib/api'
 import { useStore } from '../store'
 import { VIRAL_CONTENT, fmtNum } from '../lib/viralContent'
@@ -9,6 +9,12 @@ const CHECKLIST_KEY = 'fl_home_checklist'
 const getStoredChecklist = () => {
   try { return JSON.parse(localStorage.getItem(CHECKLIST_KEY) || '{}') } catch { return {} }
 }
+
+const MARKETING_VIDEOS = [
+  { title: 'Content Creation', url: 'https://framerusercontent.com/assets/6NUGLmWzt2KJ95WV1mQcKH43Uw.mp4' },
+  { title: 'Remix in Action', url: 'https://framerusercontent.com/assets/AYCZkZeNDKxrsb61wQFr3EuC4.mp4' },
+  { title: 'Schedule & Publish', url: 'https://framerusercontent.com/assets/YgYoTWarq2a1OdCzneCxbfH6pw.mp4' },
+]
 
 const TUTORIAL_VIDEOS = [
   { title: 'Intro & Homepage Guide', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
@@ -321,6 +327,33 @@ export default function Home() {
               </Link>
             )
           })}
+        </div>
+      </div>
+
+      {/* See it in action */}
+      <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontWeight: 700, fontSize: 18, color: '#111827', margin: '0 0 6px' }}>See it in action</h2>
+        <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 14px' }}>Watch how Fastlane turns ideas into scroll-stopping content.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {MARKETING_VIDEOS.map((vid) => (
+            <div key={vid.url} style={{
+              borderRadius: 14, overflow: 'hidden', background: '#000',
+              border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
+            }}>
+              <video
+                src={vid.url}
+                controls
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }}
+              />
+              <div style={{ padding: '10px 12px', background: 'white' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{vid.title}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

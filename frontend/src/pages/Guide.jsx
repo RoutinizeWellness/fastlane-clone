@@ -1,64 +1,48 @@
 import { useState, useRef } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Play, Rocket, Palette, Settings } from 'lucide-react'
 
-const GUIDE_VIDEOS = [
+const GUIDE_SECTIONS = [
   {
     section: 'Getting Started',
+    icon: 'Rocket',
+    description: 'Learn the basics of navigating Fastlane, using Blitz mode for rapid content creation, and creating content manually.',
     videos: [
-      { title: 'Intro & Homepage Guide', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
+      { title: 'Introduction', description: 'A full walkthrough of the homepage and core navigation.', url: 'https://media.aftermark.ai/tutorials/compressed-intro-homepage-guide.mov' },
+      { title: 'Blitz Mode Guide', description: 'How to use Blitz mode to generate content in seconds.', url: 'https://media.aftermark.ai/tutorials/compressed-blitz-guide.mov' },
+      { title: 'Manual Creation', description: 'Step-by-step guide to creating content manually with full control.', url: 'https://media.aftermark.ai/tutorials/manual-creation-demo.mp4' },
+      { title: 'Blitz Demo', description: 'Watch Blitz mode in action from start to finish.', url: 'https://media.aftermark.ai/tutorials/blitz-demo.mp4' },
     ]
   },
   {
-    section: 'Blitz Mode',
+    section: 'Content Types',
+    icon: 'Palette',
+    description: 'Explore each content format available in Fastlane and learn how to make the most of every style.',
     videos: [
-      { title: 'Blitz Guide', url: 'https://media.aftermark.ai/tutorials/compressed-blitz-guide.mov' },
-      { title: 'Blitz Demo', url: 'https://media.aftermark.ai/tutorials/blitz-demo.mp4' },
+      { title: 'Green Screen Meme', description: 'Create viral green screen memes with trending backgrounds.', url: 'https://media.aftermark.ai/tutorials/2-green-screen.mp4' },
+      { title: 'Wall of Text', description: 'Bold text overlays that stop the scroll and deliver instant value.', url: 'https://media.aftermark.ai/tutorials/3-wall-of-text.mp4' },
+      { title: 'Hook & Demo', description: 'Pair a viral hook with your product demo for maximum impact.', url: 'https://media.aftermark.ai/tutorials/4-hook-demo.mp4' },
+      { title: 'Slideshows', description: 'Image carousels that tell a story and drive engagement.', url: 'https://media.aftermark.ai/tutorials/5-slideshows.mp4' },
     ]
   },
   {
-    section: 'Manual Creation',
+    section: 'Features',
+    icon: 'Settings',
+    description: 'Manage your content calendar, organise your media library, and stay on top of your posting schedule.',
     videos: [
-      { title: 'Manual Creation Demo', url: 'https://media.aftermark.ai/tutorials/manual-creation-demo.mp4' },
-    ]
-  },
-  {
-    section: 'Green Screen',
-    videos: [
-      { title: 'Green Screen Tutorial', url: 'https://media.aftermark.ai/tutorials/2-green-screen.mp4' },
-    ]
-  },
-  {
-    section: 'Wall of Text',
-    videos: [
-      { title: 'Wall of Text Tutorial', url: 'https://media.aftermark.ai/tutorials/3-wall-of-text.mp4' },
-    ]
-  },
-  {
-    section: 'Hook & Demo',
-    videos: [
-      { title: 'Hook & Demo Tutorial', url: 'https://media.aftermark.ai/tutorials/4-hook-demo.mp4' },
-    ]
-  },
-  {
-    section: 'Slideshows',
-    videos: [
-      { title: 'Slideshows Tutorial', url: 'https://media.aftermark.ai/tutorials/5-slideshows.mp4' },
-    ]
-  },
-  {
-    section: 'Calendar & Library',
-    videos: [
-      { title: 'Calendar & Library Tutorial', url: 'https://media.aftermark.ai/tutorials/6-calendar-library.mp4' },
+      { title: 'Calendar & Library', description: 'Schedule posts and manage your media library in one place.', url: 'https://media.aftermark.ai/tutorials/6-calendar-library.mp4' },
     ]
   },
 ]
+
+const SECTION_ICONS = { Rocket, Palette, Settings }
 
 function GuideVideo({ video }) {
   const ref = useRef(null)
   return (
     <div style={{
-      borderRadius: 12, overflow: 'hidden', background: '#000',
-      border: '1px solid #E5E7EB', maxWidth: 320
+      borderRadius: 14, overflow: 'hidden', background: '#000',
+      border: '1px solid #E5E7EB', width: 260, flexShrink: 0,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
     }}>
       <video
         ref={ref}
@@ -69,8 +53,11 @@ function GuideVideo({ video }) {
         preload="metadata"
         style={{ width: '100%', aspectRatio: '9/16', objectFit: 'cover', display: 'block' }}
       />
-      <div style={{ padding: '8px 12px', background: 'white' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{video.title}</span>
+      <div style={{ padding: '10px 14px', background: 'white' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{video.title}</div>
+        {video.description && (
+          <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>{video.description}</div>
+        )}
       </div>
     </div>
   )
@@ -192,16 +179,34 @@ export default function Guide() {
       </div>
 
       {/* Tutorial Video Sections */}
-      {GUIDE_VIDEOS.map(section => (
-        <div key={section.section} style={{ marginBottom: 32 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', marginBottom: 12 }}>{section.section}</h3>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            {section.videos.map(vid => (
-              <GuideVideo key={vid.url} video={vid} />
-            ))}
+      {GUIDE_SECTIONS.map(section => {
+        const Icon = SECTION_ICONS[section.icon]
+        return (
+          <div key={section.section} style={{ marginBottom: 36 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              {Icon && (
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Icon size={16} color="#EA580C" />
+                </div>
+              )}
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#111827', margin: 0 }}>{section.section}</h3>
+            </div>
+            {section.description && (
+              <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 14px', paddingLeft: 42, lineHeight: 1.5 }}>{section.description}</p>
+            )}
+            <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+              {section.videos.map(vid => (
+                <div key={vid.url} style={{ scrollSnapAlign: 'start' }}>
+                  <GuideVideo video={vid} />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* FAQ Sections */}
       {FAQ_SECTIONS.map(section => (
