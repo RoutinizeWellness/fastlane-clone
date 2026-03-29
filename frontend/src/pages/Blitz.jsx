@@ -465,24 +465,6 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
             alt={curSlide?.text || ''}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
-          {/* Text overlay on slide */}
-          {isLg && curSlide?.text && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '40px 16px 52px', textAlign: 'center',
-              background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.5))',
-              pointerEvents: 'none',
-            }}>
-              <p style={{
-                color: 'white', fontSize: 14, fontWeight: 900, lineHeight: 1.3,
-                margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-                display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-              }}>
-                {curSlide.text}
-              </p>
-            </div>
-          )}
           {/* Prev / Next slide buttons (large card only) */}
           {isLg && video.slides.length > 1 && (
             <>
@@ -551,139 +533,34 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
         </div>
       )}
 
-      {/* Caption overlay — varies by contentType */}
-      {video.contentType === 'slideshow' ? (
-        /* SLIDESHOW: if slides exist, carousel handles it above; otherwise fallback colored overlay */
-        !isSlideshow ? (
-          <div style={{
-            position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: (() => {
-              const colors = ['rgba(139,92,246,0.55)', 'rgba(236,72,153,0.55)', 'rgba(14,165,233,0.55)', 'rgba(249,115,22,0.55)', 'rgba(16,185,129,0.55)']
-              return colors[(video.id || 0) % colors.length]
-            })(),
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: isLg ? '40px 16px 52px' : '24px 10px 36px',
+      {/* Clean bottom caption - no full-screen text overlay */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: isLg ? '48px 12px 42px' : '32px 8px 30px',
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+        pointerEvents: 'none',
+      }}>
+        {video.contentType && (
+          <span style={{
+            display: 'inline-block', marginBottom: 4,
+            padding: '2px 8px', borderRadius: 9999,
+            background: video.contentType === 'video-hook-and-demo' ? '#F97316' : video.contentType === 'green-screen-meme' ? '#10B981' : 'rgba(255,255,255,0.15)',
+            color: 'white', fontSize: isLg ? 9 : 7, fontWeight: 700,
+            letterSpacing: 0.5, textTransform: 'uppercase',
           }}>
-            <p style={{
-              color: 'white', fontWeight: 900,
-              fontSize: isLg ? 15 : 11, lineHeight: 1.35, margin: 0,
-              textAlign: 'center',
-              textShadow: '0 2px 8px rgba(0,0,0,0.7), 0 0px 2px rgba(0,0,0,0.5)',
-              display: '-webkit-box', WebkitLineClamp: isLg ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            }}>
-              {video.caption}
-            </p>
-          </div>
-        ) : null
-      ) : video.contentType === 'wall-of-text' ? (
-        /* WALL OF TEXT: dark overlay + long left-aligned text block */
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'rgba(0,0,0,0.65)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          padding: isLg ? '32px 14px 52px' : '20px 8px 36px',
+            {video.contentType === 'slideshow' ? 'Slideshow' : video.contentType === 'wall-of-text' ? 'Wall of Text' : video.contentType === 'video-hook-and-demo' ? 'Hook' : video.contentType === 'green-screen-meme' ? 'Meme' : ''}
+          </span>
+        )}
+        <p style={{
+          color: 'white', fontSize: isLg ? 11 : 9, fontWeight: 600,
+          lineHeight: 1.3, margin: 0,
+          display: '-webkit-box', WebkitLineClamp: isLg ? 2 : 1,
+          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          textShadow: '0 1px 4px rgba(0,0,0,0.8)',
         }}>
-          <p style={{
-            color: 'white', fontWeight: 600,
-            fontSize: isLg ? 12 : 9, lineHeight: 1.55, margin: 0,
-            textAlign: 'left',
-            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-            display: '-webkit-box', WebkitLineClamp: isLg ? 8 : 6, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {video.textOverlay || video.caption}
-          </p>
-          {video.subCaption && isLg && (
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, lineHeight: 1.4, margin: '6px 0 0', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-              {video.subCaption}
-            </p>
-          )}
-        </div>
-      ) : video.contentType === 'video-hook-and-demo' ? (
-        /* VIDEO HOOK: hook badge + caption at TOP with top gradient */
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', pointerEvents: 'none' }}>
-          {/* HOOK badge */}
-          <div style={{
-            position: 'absolute', top: isLg ? 10 : 6, right: isLg ? 10 : 6,
-            background: '#F97316', borderRadius: 6,
-            padding: isLg ? '3px 8px' : '2px 6px',
-            zIndex: 3,
-          }}>
-            <span style={{ color: 'white', fontSize: isLg ? 10 : 8, fontWeight: 800, letterSpacing: 0.5 }}>HOOK</span>
-          </div>
-          {/* Top gradient + caption */}
-          <div style={{ padding: isLg ? '40px 12px 48px' : '28px 8px 32px', background: 'linear-gradient(rgba(0,0,0,0.75) 40%, transparent)' }}>
-            <p style={{
-              color: 'white', fontWeight: isLg ? 800 : 700,
-              fontSize: isLg ? (video.hookText ? 14 : 13) : 10, lineHeight: 1.4, margin: 0,
-              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-              display: '-webkit-box', WebkitLineClamp: isLg ? 4 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-            }}>
-              {video.hookText || video.caption}
-            </p>
-            {video.subCaption && isLg && (
-              <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, lineHeight: 1.35, margin: '5px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {video.subCaption}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : video.contentType === 'green-screen-meme' ? (
-        /* GREEN SCREEN: meme-style text top + bottom, MEME badge */
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-          {/* MEME badge */}
-          <div style={{
-            position: 'absolute', top: isLg ? 10 : 6, left: isLg ? 10 : 6,
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', borderRadius: 6,
-            padding: isLg ? '3px 8px' : '2px 6px',
-            zIndex: 3,
-          }}>
-            <span style={{ color: '#34D399', fontSize: isLg ? 10 : 8, fontWeight: 800, letterSpacing: 0.5 }}>MEME</span>
-          </div>
-          {/* Top text */}
-          <div style={{ padding: isLg ? '36px 10px 0' : '24px 6px 0', textAlign: 'center' }}>
-            <p style={{
-              color: 'white', fontWeight: 900,
-              fontSize: isLg ? 14 : 10, lineHeight: 1.3, margin: 0,
-              textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.7)',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              textTransform: 'uppercase',
-            }}>
-              {video.topText || (video.caption ? video.caption.split(/[.!?]\s*/)[0] : '')}
-            </p>
-          </div>
-          {/* Bottom text */}
-          <div style={{ padding: isLg ? '0 10px 52px' : '0 6px 36px', textAlign: 'center' }}>
-            <p style={{
-              color: 'white', fontWeight: 900,
-              fontSize: isLg ? 14 : 10, lineHeight: 1.3, margin: 0,
-              textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 2px 6px rgba(0,0,0,0.7)',
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              textTransform: 'uppercase',
-            }}>
-              {video.bottomText || (video.caption ? video.caption.split(/[.!?]\s*/).slice(1).join('. ') || video.caption.split(' ').slice(-4).join(' ') : '')}
-            </p>
-          </div>
-        </div>
-      ) : (
-        /* DEFAULT: original bottom gradient + caption */
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-          <div style={{ padding: isLg ? '40px 12px 52px' : '24px 8px 36px', background: 'linear-gradient(transparent, rgba(0,0,0,0.75) 60%)' }}>
-            <p style={{
-              color: 'white', fontWeight: isLg ? 800 : 700,
-              fontSize: isLg ? 13 : 10, lineHeight: 1.4, margin: 0,
-              textShadow: '0 1px 4px rgba(0,0,0,0.9)',
-              display: '-webkit-box', WebkitLineClamp: isLg ? 4 : 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-            }}>
-              {video.caption}
-            </p>
-            {video.subCaption && isLg && (
-              <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, lineHeight: 1.35, margin: '5px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {video.subCaption}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+          {video.caption}
+        </p>
+      </div>
 
       {/* Side metrics (only large) */}
       {isLg && (

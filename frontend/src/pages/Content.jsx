@@ -400,8 +400,8 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                         alt={slide.text || ''}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                       />
-                      {/* Text overlay on current slide — uses EditableTextOverlay */}
-                      {isCenter && (
+                      {/* Text overlay on current slide — only shown when actively editing */}
+                      {isCenter && editingVideoId === video.id && (
                         (() => {
                           const textKey = `${video.id}-slide-${curSlideIdx}`
                           const currentText = textOverrides?.[textKey] ?? slide.text ?? ''
@@ -411,7 +411,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                               videoId={video.id}
                               text={currentText}
                               textStyle={currentStyle}
-                              isEditing={editingVideoId === video.id}
+                              isEditing={true}
                               onStartEdit={() => onStartEdit && onStartEdit(video.id)}
                               onTextChange={t => onTextChange && onTextChange(textKey, t)}
                               onStyleChange={s => onStyleChange && onStyleChange(video.id, s)}
@@ -421,6 +421,22 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                             />
                           )
                         })()
+                      )}
+                      {/* Edit text button — shown when not editing */}
+                      {isCenter && editingVideoId !== video.id && (
+                        <button
+                          onClick={e => { e.stopPropagation(); onStartEdit && onStartEdit(video.id) }}
+                          style={{
+                            position: 'absolute', top: 8, right: 40, zIndex: 5,
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            padding: '4px 10px', borderRadius: 8,
+                            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                            border: 'none', cursor: 'pointer', color: 'white',
+                            fontSize: 10, fontWeight: 600,
+                          }}
+                        >
+                          <Edit3 size={10} /> Edit text
+                        </button>
                       )}
                       {/* Prev / Next slide buttons (center card only) */}
                       {isCenter && video.slides.length > 1 && (
@@ -496,8 +512,8 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                 </>
               )}
 
-              {/* Content-type-specific overlay (center card) — unified editable text */}
-              {isCenter && video.contentType !== 'slideshow' && (() => {
+              {/* Content-type-specific overlay (center card) — only shown when actively editing */}
+              {isCenter && video.contentType !== 'slideshow' && editingVideoId === video.id && (() => {
                 const textKey = video.id
                 const currentText = textOverrides?.[textKey] ?? getDefaultText(video)
                 const currentStyle = textStyles?.[video.id] || {
@@ -510,7 +526,7 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                     videoId={video.id}
                     text={currentText}
                     textStyle={currentStyle}
-                    isEditing={editingVideoId === video.id}
+                    isEditing={true}
                     onStartEdit={() => onStartEdit && onStartEdit(video.id)}
                     onTextChange={t => onTextChange && onTextChange(textKey, t)}
                     onStyleChange={s => onStyleChange && onStyleChange(video.id, s)}
@@ -520,6 +536,22 @@ function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, on
                   />
                 )
               })()}
+              {/* Edit text button for non-slideshow (center card, not editing) */}
+              {isCenter && video.contentType !== 'slideshow' && editingVideoId !== video.id && (
+                <button
+                  onClick={e => { e.stopPropagation(); onStartEdit && onStartEdit(video.id) }}
+                  style={{
+                    position: 'absolute', top: 8, right: 40, zIndex: 5,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '4px 10px', borderRadius: 8,
+                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    border: 'none', cursor: 'pointer', color: 'white',
+                    fontSize: 10, fontWeight: 600,
+                  }}
+                >
+                  <Edit3 size={10} /> Edit text
+                </button>
+              )}
 
               {/* Side card label (non-center) — simplified with type indicator */}
               {!isCenter && Math.abs(offset) === 1 && video.caption && (
