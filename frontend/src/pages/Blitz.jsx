@@ -268,7 +268,7 @@ export default function Blitz() {
                 flexShrink: 0, background: '#111',
               }}>
                 <img
-                  src={modalVideo.thumbnail}
+                  src={modalVideo.thumbnail || modalVideo.slides?.[0]?.imageUrl || modalVideo.videoUrl}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -440,13 +440,19 @@ function BlitzCard({ video, size = 'sm', active = false, label = null, onClick, 
             </div>
           )}
         </>
-      ) : (
+      ) : video.videoUrl && video.videoUrl.match(/\.(mp4|webm|mov)(\?|$)/i) ? (
         <video
           key={video.videoUrl}
           src={video.videoUrl}
           poster={video.thumbnail}
           autoPlay muted loop playsInline
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      ) : (
+        <img
+          src={video.thumbnail || video.videoUrl}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       )}
 

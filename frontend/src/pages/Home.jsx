@@ -21,7 +21,7 @@ function TrendingCard({ video, active }) {
       boxShadow: active ? '0 8px 24px rgba(0,0,0,0.3)' : 'none',
       cursor: 'pointer'
     }}>
-      <img src={video.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <img src={video.thumbnail || video.slides?.[0]?.imageUrl || video.videoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       {/* Overlay bottom */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 8px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.7))' }}>
         {active && (
@@ -68,18 +68,15 @@ export default function Home() {
   ]
   const doneCount = steps.filter(s => s.done).length
 
-  // Fetch trending from API, fallback to VIRAL_CONTENT
+  // Use curated trending from VIRAL_CONTENT — only items with real image thumbnails
   useEffect(() => {
-    api.get('/media/trending').then(r => {
-      const vids = r.data.videos || []
-      if (vids.length > 0) {
-        setTrending(vids)
-      } else {
-        setTrending(VIRAL_CONTENT.slice(0, 5))
-      }
-    }).catch(() => {
-      setTrending(VIRAL_CONTENT.slice(0, 5))
-    }).finally(() => setLoading(false))
+    const isImgUrl = (u) => u && (u.endsWith('.webp') || u.endsWith('.jpg') || u.endsWith('.png') || u.includes('%2Fslideshow%2F') || u.includes('/thumbnails/') || u.includes('/images/'))
+    const hasThumb = (c) => isImgUrl(c.thumbnail) || (c.slides && c.slides[0] && isImgUrl(c.slides[0].imageUrl))
+    // Prefer slideshows (always have image thumbnails) + items with worker thumbnails
+    const good = VIRAL_CONTENT.filter(hasThumb)
+    const shuffled = [...good].sort(() => Math.random() - 0.5)
+    setTrending(shuffled.slice(0, 8))
+    setLoading(false)
   }, [])
 
   // Auto-advance trending carousel
