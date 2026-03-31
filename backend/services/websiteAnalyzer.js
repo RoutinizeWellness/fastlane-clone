@@ -57,32 +57,20 @@ Visible Text (first 2000 chars): ${extracted.visibleText}
 Colors found in styles: ${extracted.colors.join(', ') || 'none'}`;
 
   const raw = await callAI(systemPrompt, userPrompt);
-  if (raw) {
-    try {
-      const match = raw.match(/\{[\s\S]*\}/);
-      if (match) return JSON.parse(match[0]);
-    } catch (e) {
-      // Parse failed, fall through to mock
-    }
+  if (!raw) {
+    throw new Error('AI service unavailable. Please configure GROQ_API_KEY in .env');
   }
 
-  // Mock fallback when AI is unavailable
-  const domain = url.replace(/https?:\/\//, '').split('/')[0];
-  const domainName = domain.split('.')[0];
-  const brandNameFallback = extracted.title || domainName.charAt(0).toUpperCase() + domainName.slice(1);
-  return {
-    brand_name: brandNameFallback,
-    product_type: 'SaaS',
-    industry: 'Technology',
-    tone: 'professional',
-    target_audience: 'Professionals and businesses',
-    key_terms: extracted.visibleText
-      ? extracted.visibleText.split(/\s+/).filter(w => w.length > 5).slice(0, 6)
-      : ['productivity', 'growth', 'platform', 'solution', 'tools'],
-    tagline: extracted.metaDescription || extracted.ogDescription || `${brandNameFallback} - ${domain}`,
-    brand_colors: extracted.colors.length > 0 ? extracted.colors.slice(0, 4) : ['#2563EB', '#1E40AF', '#111827'],
-    website_url: url
-  };
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
+
+  try {
+    return JSON.parse(match[0]);
+  } catch (e) {
+    throw new Error('Failed to parse AI response. Please try again.');
+  }
 }
 
 function extractFromHTML(html) {
