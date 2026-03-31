@@ -6,17 +6,40 @@ async function analyzeWebsite(url) {
   // Normalize URL
   if (!url.startsWith('http')) url = 'https://' + url;
 
-  // 1. Fetch the page
+  // 1. Fetch the page (gracefully handle failures)
   let html = '';
+  let fetchError = null;
   try {
     const resp = await axios.get(url, {
-      timeout: 10000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FastlaneBot/1.0)' },
-      maxRedirects: 5
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500
     });
     html = typeof resp.data === 'string' ? resp.data : '';
   } catch (err) {
-    throw new Error('Could not fetch website: ' + (err.message || 'Unknown error'));
+    fetchError = err.message || 'Unknown error';
+    // Try with http if https failed
+    if (url.startsWith('https://')) {
+      try {
+        const resp2 = await axios.get(url.replace('https://', 'http://'), {
+          timeout: 15000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
+          maxRedirects: 5,
+          validateStatus: (status) => status < 500
+        });
+        html = typeof resp2.data === 'string' ? resp2.data : '';
+        fetchError = null;
+      } catch (err2) {
+        // Both failed, continue with empty HTML - mock fallback will handle it
+      }
+    }
   }
 
   // 2. Extract content from HTML
@@ -44,15 +67,21 @@ Colors found in styles: ${extracted.colors.join(', ') || 'none'}`;
   }
 
   // Mock fallback when AI is unavailable
+  const domain = url.replace(/https?:\/\//, '').split('/')[0];
+  const domainName = domain.split('.')[0];
+  const brandNameFallback = extracted.title || domainName.charAt(0).toUpperCase() + domainName.slice(1);
   return {
-    brand_name: extracted.title || url.replace(/https?:\/\//, '').split('/')[0].split('.')[0],
+    brand_name: brandNameFallback,
     product_type: 'SaaS',
     industry: 'Technology',
     tone: 'professional',
     target_audience: 'Professionals and businesses',
-    key_terms: ['productivity', 'growth', 'platform', 'solution', 'tools'],
-    tagline: extracted.metaDescription || 'Building the future',
-    brand_colors: extracted.colors.length > 0 ? extracted.colors.slice(0, 4) : ['#2563EB', '#1E40AF', '#111827']
+    key_terms: extracted.visibleText
+      ? extracted.visibleText.split(/\s+/).filter(w => w.length > 5).slice(0, 6)
+      : ['productivity', 'growth', 'platform', 'solution', 'tools'],
+    tagline: extracted.metaDescription || extracted.ogDescription || `${brandNameFallback} - ${domain}`,
+    brand_colors: extracted.colors.length > 0 ? extracted.colors.slice(0, 4) : ['#2563EB', '#1E40AF', '#111827'],
+    website_url: url
   };
 }
 

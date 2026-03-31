@@ -66,6 +66,7 @@ router.post('/analyze-url', auth, async (req, res) => {
 
     res.json({ analysis: data });
   } catch (err) {
+    console.error('Brand analyze-url error:', err);
     res.status(500).json({ error: err.message || 'Failed to analyze website' });
   }
 });
