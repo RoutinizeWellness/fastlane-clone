@@ -16,6 +16,7 @@ import Guide from './pages/Guide'
 import Engagement from './pages/Engagement'
 import Brand from './pages/Brand'
 import Settings from './pages/Settings'
+import EditContent from './pages/EditContent'
 
 function PrivateRoute({ children }) {
   const { token } = useStore()
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="engagement" element={<Engagement />} />
           <Route path="brand" element={<Brand />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="edit/:id" element={<EditContent />} />
         </Route>
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>

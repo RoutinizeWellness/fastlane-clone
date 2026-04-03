@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { useStore } from '../store'
 import { Check, Loader2, Globe, ArrowRight, SkipForward } from 'lucide-react'
 
 const PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'LinkedIn', 'Twitter/X']
@@ -47,6 +48,7 @@ export default function Onboarding() {
   const [analysisResult, setAnalysisResult] = useState(null)
   const [analysisError, setAnalysisError] = useState('')
   const navigate = useNavigate()
+  const { setOnboardingComplete, setBrand } = useStore()
 
   const toggle = (arr, val) => arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]
 
@@ -79,12 +81,33 @@ export default function Onboarding() {
 
   const finish = async () => {
     try {
-      await api.put('/brand', {
+      // Build full brand payload including analysis data
+      const brandPayload = {
         industry: selected.niche,
         tone: selected.tone?.toLowerCase() || 'casual',
-        website_url: websiteUrl.trim() || undefined
-      })
+        website_url: websiteUrl.trim() || undefined,
+      }
+      // If we have analysis results, include them
+      if (analysisResult) {
+        brandPayload.brand_name = analysisResult.brand_name || ''
+        brandPayload.description = analysisResult.tagline || analysisResult.product_type || ''
+      }
+      await api.put('/brand', brandPayload)
+
+      // Update frontend store with brand data
+      const storeBrand = {
+        brandName: analysisResult?.brand_name || '',
+        industry: selected.niche,
+        tone: selected.tone?.toLowerCase() || 'casual',
+        website: websiteUrl.trim() || '',
+        description: analysisResult?.tagline || analysisResult?.product_type || '',
+        targetAudience: analysisResult?.target_audience || '',
+        productName: analysisResult?.product_type || '',
+        tagline: analysisResult?.tagline || '',
+      }
+      setBrand(storeBrand)
     } catch {}
+    setOnboardingComplete(true)
     navigate('/home')
   }
 

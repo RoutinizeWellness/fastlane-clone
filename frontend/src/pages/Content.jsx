@@ -1,48 +1,25 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Copy, ChevronLeft, ChevronRight, RefreshCw, Edit3, Save, Bookmark, Download, Type, Palette, AlignCenter, Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { Copy, ChevronLeft, ChevronRight, RefreshCw, Heart, Eye, Upload, Sparkles, Download, Film, Pencil } from 'lucide-react'
 import api from '../lib/api'
 import { VIRAL_CONTENT, CONTENT_TAGS } from '../lib/viralContent'
 import { formatNumber } from '../lib/utils'
-import { saveToLibrary, downloadContent } from '../lib/contentActions'
+import { useStore } from '../store'
 
-const FONT_OPTIONS = [
-  { label: 'Inter', value: 'Inter, sans-serif' },
-  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
-  { label: 'Oswald', value: 'Oswald, sans-serif' },
-  { label: 'Playfair Display', value: "'Playfair Display', serif" },
-  { label: 'Bebas Neue', value: "'Bebas Neue', sans-serif" },
-]
-const COLOR_PRESETS = [
-  { label: 'White', value: '#FFFFFF' },
-  { label: 'Black', value: '#000000' },
-  { label: 'Yellow', value: '#FACC15' },
-  { label: 'Red', value: '#EF4444' },
-  { label: 'Cyan', value: '#06B6D4' },
-]
-const POSITION_OPTIONS = ['top', 'center', 'bottom']
-const SIZE_OPTIONS = [
-  { label: 'S', value: 11 },
-  { label: 'M', value: 14 },
-  { label: 'L', value: 18 },
-]
-
-function getDisplayText(video, slideIdxMap) {
-  if (video.contentType === 'slideshow' && video.slides?.length) {
-    const si = (slideIdxMap && slideIdxMap[video.id]) || 0
-    return (video.slides[si] || video.slides[0])?.text || ''
-  }
-  if (video.contentType === 'wall-of-text') return video.textOverlay || ''
-  if (video.contentType === 'video-hook-and-demo') return video.hookText || ''
-  if (video.contentType === 'green-screen-meme') return video.topText || ''
-  return video.caption || ''
+// Inject keyframes once
+if (typeof document !== 'undefined' && !document.getElementById('__content_kf')) {
+  const s = document.createElement('style')
+  s.id = '__content_kf'
+  s.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`
+  document.head.appendChild(s)
 }
 
 const TABS = [
-  { id: 'slideshow', label: 'Slideshow', path: 'slideshow' },
-  { id: 'wall-of-text', label: 'Wall of Text', path: 'wall-of-text' },
-  { id: 'video-hook-and-demo', label: 'Video Hook & Demo', path: 'video-hook-and-demo' },
-  { id: 'green-screen-meme', label: 'Green Screen Meme', path: 'green-screen-meme' },
+  { id: 'slideshow', label: 'Slideshow', endpoint: '/content/slideshow' },
+  { id: 'wall-of-text', label: 'Wall of Text', endpoint: '/content/wall-of-text' },
+  { id: 'video-hook-and-demo', label: 'Video Hook & Demo', endpoint: '/content/video-hook-and-demo' },
+  { id: 'green-screen-meme', label: 'Green Screen Meme', endpoint: '/content/green-screen-meme' },
+  { id: 'custom', label: 'Custom', endpoint: null },
 ]
 
 const TAG_COLORS = {
@@ -58,1087 +35,402 @@ const TAG_COLORS = {
   'Health': { bg: '#FFF1F2', text: '#BE123C' },
   'Relationships': { bg: '#FDF4FF', text: '#86198F' },
   'Course/Digital Product': { bg: '#FFF7ED', text: '#C2410C' },
+  'E-Commerce': { bg: '#FEE2E2', text: '#B91C1C' },
+  'Beauty': { bg: '#FFF7ED', text: '#C2410C' },
+  'Personal Brand': { bg: '#FEF3C7', text: '#B45309' },
+  'Spirituality': { bg: '#FAE8FF', text: '#7E22CE' },
+  'Supplement': { bg: '#F0FFF4', text: '#14532D' },
+  'Reaction': { bg: '#E5EDFF', text: '#3730A3' },
 }
 
-/* ── 3D stacked carousel ─────────────────────────────── */
-function VideoCarousel({ videos, activeIdx, onNavigate, onRemix, slideIdxMap, onSlideNav, onSave, onDownload, textOverrides, onTextEdit, textStyles, onAdapt }) {
-  const prev2 = videos[(activeIdx - 2 + videos.length) % videos.length]
-  const prev1 = videos[(activeIdx - 1 + videos.length) % videos.length]
-  const current = videos[activeIdx]
-  const next1 = videos[(activeIdx + 1) % videos.length]
-  const next2 = videos[(activeIdx + 2) % videos.length]
+const SLIDE_COLORS = ['#EA580C','#1a1a1a','#6366f1','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ef4444']
 
-  const cards = [
-    { video: prev2, offset: -2, scale: 0.68, z: 0, opacity: 0.3, rotate: -12 },
-    { video: prev1, offset: -1, scale: 0.82, z: 1, opacity: 0.6, rotate: -6 },
-    { video: current, offset: 0, scale: 1, z: 2, opacity: 1, rotate: 0 },
-    { video: next1, offset: 1, scale: 0.82, z: 1, opacity: 0.6, rotate: 6 },
-    { video: next2, offset: 2, scale: 0.68, z: 0, opacity: 0.3, rotate: 12 },
-  ]
-
-  return (
-    <div style={{ position: 'relative', flex: 1, minHeight: 350, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      {/* Left arrow */}
-      <button
-        onClick={() => onNavigate(-1)}
-        style={{
-          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
-          zIndex: 20, width: 30, height: 30, borderRadius: '50%',
-          background: 'white', border: '1px solid #E5E7EB',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-        }}
-      >
-        <ChevronLeft size={16} color="#374151" />
-      </button>
-
-      {/* Cards — perspective container */}
-      <div style={{ position: 'relative', width: 500, height: 400, perspective: '1000px' }}>
-        {cards.map(({ video, offset, scale, z, opacity, rotate }, i) => {
-          if (!video) return null
-          const isCenter = offset === 0
-          const xPx = offset * 120
-
-          return (
-            <div
-              key={`${video.id}-${offset}`}
-              onClick={() => !isCenter && onNavigate(offset)}
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: 195,
-                aspectRatio: '9/16',
-                transform: `translate(-50%, -50%) translateX(${xPx}px) translateZ(${isCenter ? 40 : 0}px) scale(${scale}) rotateY(${rotate}deg)`,
-                transformOrigin: 'center center',
-                zIndex: z + (isCenter ? 10 : 0),
-                opacity,
-                borderRadius: isCenter ? 18 : 14,
-                overflow: 'hidden',
-                background: '#111',
-                cursor: isCenter ? 'default' : 'pointer',
-                transition: 'all 0.45s cubic-bezier(0.23, 1, 0.32, 1)',
-                boxShadow: isCenter ? '0 16px 48px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.2)',
-                willChange: 'transform, opacity',
-              }}
-            >
-              {/* Slideshow image carousel */}
-              {video.contentType === 'slideshow' && video.slides && video.slides.length > 0 ? (
-                (() => {
-                  const curSlideIdx = (slideIdxMap && slideIdxMap[video.id]) || 0
-                  const slide = video.slides[curSlideIdx] || video.slides[0]
-                  return (
-                    <>
-                      <img
-                        src={isCenter ? slide.imageUrl : (video.slides[0]?.imageUrl || video.thumbnail)}
-                        alt={slide.text || ''}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      />
-                      {/* Text overlay on current slide — editable, single text only */}
-                      {isCenter && (() => {
-                        const style = textStyles?.[video.id] || {}
-                        const overrideText = textOverrides?.[video.id]
-                        const txt = overrideText ?? (slide.text || '')
-                        if (!txt) return null
-                        const fontFamily = style.fontFamily || 'Inter, sans-serif'
-                        const color = style.color || '#FFFFFF'
-                        const fontSize = style.fontSize || 14
-                        const position = style.position || 'center'
-                        const posAlign = position === 'top' ? 'flex-start' : position === 'bottom' ? 'flex-end' : 'center'
-                        return (
-                          <div
-                            onClick={(e) => { e.stopPropagation(); onTextEdit && onTextEdit(video.id) }}
-                            style={{
-                              position: 'absolute', inset: 0,
-                              display: 'flex', alignItems: posAlign, justifyContent: 'center',
-                              padding: '20px 14px 52px', textAlign: 'center',
-                              background: 'linear-gradient(transparent 30%, rgba(0,0,0,0.5))',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <p style={{
-                              color, fontFamily, fontSize, fontWeight: 900, lineHeight: 1.3,
-                              margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-                              display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                            }}>{txt}</p>
-                          </div>
-                        )
-                      })()}
-                      {/* Prev / Next slide buttons (center card only) */}
-                      {isCenter && video.slides.length > 1 && (
-                        <>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, -1) }}
-                            aria-label="Previous slide"
-                            style={{
-                              position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)',
-                              width: 22, height: 22, borderRadius: '50%',
-                              background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 12, zIndex: 5,
-                            }}
-                          >&#8249;</button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, 1) }}
-                            aria-label="Next slide"
-                            style={{
-                              position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
-                              width: 22, height: 22, borderRadius: '50%',
-                              background: 'rgba(0,0,0,0.5)', border: 'none', color: 'white',
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 12, zIndex: 5,
-                            }}
-                          >&#8250;</button>
-                        </>
-                      )}
-                      {/* Slide dot indicators (center card only) */}
-                      {isCenter && video.slides.length > 1 && (
-                        <div style={{ position: 'absolute', bottom: 36, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4, zIndex: 5 }}>
-                          {video.slides.map((_, si) => (
-                            <button
-                              key={si}
-                              onClick={(e) => { e.stopPropagation(); onSlideNav && onSlideNav(video.id, si, true) }}
-                              aria-label={`Go to slide ${si + 1}`}
-                              style={{
-                                width: si === curSlideIdx ? 14 : 5, height: 5, borderRadius: 3, border: 'none', padding: 0,
-                                background: si === curSlideIdx ? 'white' : 'rgba(255,255,255,0.45)',
-                                cursor: 'pointer', transition: 'all 0.3s',
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )
-                })()
-              ) : (
-                <>
-                  {video.videoUrl && (
-                    <video
-                      key={video.id}
-                      src={video.videoUrl}
-                      poster={video.thumbnail}
-                      autoPlay={isCenter}
-                      muted
-                      loop
-                      playsInline
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Content-type-specific overlay (center card) — editable, single text only */}
-              {isCenter && (() => {
-                const style = textStyles?.[video.id] || {}
-                const overrideText = textOverrides?.[video.id]
-                const fontFamily = style.fontFamily || 'Inter, sans-serif'
-                const color = style.color || '#FFFFFF'
-                const fontSize = style.fontSize || 14
-                const position = style.position || 'center'
-                const posAlign = position === 'top' ? 'flex-start' : position === 'bottom' ? 'flex-end' : 'center'
-                const posPad = position === 'top' ? '28px 10px 52px' : position === 'bottom' ? '52px 10px 52px' : '20px 10px 52px'
-
-                if (video.contentType === 'wall-of-text') {
-                  const txt = overrideText ?? (video.textOverlay || '')
-                  return txt ? (
-                    <div
-                      onClick={(e) => { e.stopPropagation(); onTextEdit && onTextEdit(video.id) }}
-                      style={{
-                        position: 'absolute', inset: 0, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', justifyContent: posAlign,
-                        padding: posPad,
-                        background: 'linear-gradient(transparent, rgba(0,0,0,0.85) 40%)',
-                      }}
-                    >
-                      <p style={{
-                        color, fontFamily, fontSize, fontWeight: 600, lineHeight: 1.5,
-                        margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-                        display: '-webkit-box', WebkitLineClamp: 7, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                      }}>{txt}</p>
-                    </div>
-                  ) : null
-                }
-                if (video.contentType === 'video-hook-and-demo') {
-                  const txt = overrideText ?? (video.hookText || '')
-                  return txt ? (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-                      <div
-                        onClick={(e) => { e.stopPropagation(); onTextEdit && onTextEdit(video.id) }}
-                        style={{ padding: '10px 10px 10px', cursor: 'pointer' }}
-                      >
-                        <span style={{
-                          display: 'inline-block', marginBottom: 4,
-                          padding: '3px 10px', borderRadius: 9999,
-                          background: 'rgba(234,88,12,0.9)',
-                          color: 'white', fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
-                          textTransform: 'uppercase', pointerEvents: 'none',
-                        }}>Hook</span>
-                        <p style={{
-                          color, fontFamily, fontSize, fontWeight: 800, lineHeight: 1.3,
-                          margin: 0, textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                        }}>{txt}</p>
-                      </div>
-                    </div>
-                  ) : null
-                }
-                if (video.contentType === 'green-screen-meme') {
-                  const topTxt = overrideText ?? (video.topText || '')
-                  const bottomTxt = textOverrides?.[video.id + '_bottom'] ?? (video.bottomText || '')
-                  return (
-                    <>
-                      <div
-                        onClick={(e) => { e.stopPropagation(); onTextEdit && onTextEdit(video.id) }}
-                        style={{
-                          position: 'absolute', top: 0, left: 0, right: 0, cursor: 'pointer',
-                          padding: '14px 10px',
-                          background: 'linear-gradient(rgba(0,0,0,0.7), transparent)',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <p style={{
-                          color, fontFamily, fontSize, fontWeight: 900, lineHeight: 1.2,
-                          margin: 0, textTransform: 'uppercase',
-                          textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
-                        }}>{topTxt}</p>
-                      </div>
-                      {bottomTxt && (
-                        <div style={{
-                          position: 'absolute', bottom: 0, left: 0, right: 0,
-                          padding: '10px 10px 52px',
-                          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-                          textAlign: 'center', pointerEvents: 'none',
-                        }}>
-                          <p style={{
-                            color, fontFamily, fontSize, fontWeight: 900, lineHeight: 1.2,
-                            margin: 0, textTransform: 'uppercase',
-                            textShadow: '2px 2px 0 #000, -1px -1px 0 #000',
-                          }}>{bottomTxt}</p>
-                        </div>
-                      )}
-                    </>
-                  )
-                }
-                if (video.contentType === 'slideshow') return null
-                // Fallback for unknown types
-                const txt = overrideText ?? (video.caption || '')
-                return txt ? (
-                  <div
-                    onClick={(e) => { e.stopPropagation(); onTextEdit && onTextEdit(video.id) }}
-                    style={{
-                      position: 'absolute', inset: 0, cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', justifyContent: posAlign,
-                      padding: '40px 12px 52px',
-                      background: 'linear-gradient(transparent, rgba(0,0,0,0.8))'
-                    }}
-                  >
-                    <p style={{
-                      color, fontFamily, fontSize, fontWeight: 700, lineHeight: 1.3,
-                      margin: 0, textShadow: '0 1px 3px rgba(0,0,0,0.7)',
-                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                    }}>{txt}</p>
-                  </div>
-                ) : null
-              })()}
-
-              {/* Caption label below card area for center card */}
-              {isCenter && video.caption && (
-                <div style={{
-                  position: 'absolute', bottom: -22, left: 0, right: 0,
-                  textAlign: 'center', pointerEvents: 'none',
-                }}>
-                  <p style={{
-                    color: '#6B7280', fontSize: 9, fontWeight: 500, lineHeight: 1.2,
-                    margin: 0, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                  }}>{video.caption}</p>
-                </div>
-              )}
-
-              {/* Side card — type indicator only, no duplicate caption overlay */}
-              {!isCenter && Math.abs(offset) === 1 && (
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  padding: '24px 8px 40px',
-                  background: 'linear-gradient(transparent, rgba(0,0,0,0.7))'
-                }}>
-                  {video.contentType === 'video-hook-and-demo' && (
-                    <span style={{
-                      display: 'inline-block', marginBottom: 3,
-                      padding: '1px 6px', borderRadius: 9999,
-                      background: 'rgba(234,88,12,0.8)',
-                      color: 'white', fontSize: 7, fontWeight: 800,
-                      textTransform: 'uppercase', letterSpacing: 0.3
-                    }}>Hook</span>
-                  )}
-                  {video.contentType === 'green-screen-meme' && (
-                    <span style={{
-                      display: 'inline-block', marginBottom: 3,
-                      padding: '1px 6px', borderRadius: 9999,
-                      background: 'rgba(0,0,0,0.7)',
-                      color: '#34D399', fontSize: 7, fontWeight: 800,
-                      textTransform: 'uppercase', letterSpacing: 0.3
-                    }}>Meme</span>
-                  )}
-                </div>
-              )}
-
-              {/* Stats (center card only) */}
-              {isCenter && (
-                <div style={{
-                  position: 'absolute', right: 8, bottom: 56,
-                  display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center'
-                }}>
-                  {/* Save button */}
-                  {onSave && (
-                    <button
-                      onClick={e => { e.stopPropagation(); onSave(video) }}
-                      style={{
-                        width: 28, height: 28, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
-                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: 'none', cursor: 'pointer', transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(234,88,12,0.8)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
-                      title="Save to Library"
-                    >
-                      <Bookmark size={12} color="white" />
-                    </button>
-                  )}
-                  {/* Download button */}
-                  {onDownload && (
-                    <button
-                      onClick={e => { e.stopPropagation(); onDownload(video) }}
-                      style={{
-                        width: 28, height: 28, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
-                        borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: 'none', cursor: 'pointer', transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(16,185,129,0.8)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
-                      title="Download"
-                    >
-                      <Download size={12} color="white" />
-                    </button>
-                  )}
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16 }}>&#10084;&#65039;</div>
-                    <span style={{ color: 'white', fontSize: 9, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_likes)}</span>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 16 }}>&#128065;</div>
-                    <span style={{ color: 'white', fontSize: 9, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_views)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Stats (adjacent cards) */}
-              {!isCenter && Math.abs(offset) === 1 && (
-                <div style={{ position: 'absolute', right: 6, bottom: 44, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12 }}>&#10084;&#65039;</div>
-                    <span style={{ color: 'white', fontSize: 8, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_likes)}</span>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 12 }}>&#128065;</div>
-                    <span style={{ color: 'white', fontSize: 8, fontWeight: 700, display: 'block' }}>{formatNumber(video.num_views)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Remix btn + Adapt btn (center) */}
-              {isCenter && (
-                <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onAdapt && onAdapt(video) }}
-                    style={{
-                      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-                      border: 'none', borderRadius: 9999, padding: '5px 10px',
-                      color: 'white', fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                      display: 'flex', alignItems: 'center', gap: 3,
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.85)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.75)'}
-                    title="Adapt to my brand"
-                  >
-                    &#10024; Adapt
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemix && onRemix(video) }}
-                    style={{
-                      background: 'linear-gradient(135deg, #EA580C, #F97316)',
-                      border: 'none', borderRadius: 9999, padding: '5px 14px',
-                      color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 8px rgba(234,88,12,0.5)',
-                      transition: 'transform 0.15s, box-shadow 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(234,88,12,0.6)' }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(234,88,12,0.5)' }}
-                  >
-                    Remix this
-                  </button>
-                </div>
-              )}
-
-              {/* Remix btn (adjacent) */}
-              {!isCenter && Math.abs(offset) === 1 && (
-                <div style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemix && onRemix(video) }}
-                    style={{
-                      background: 'rgba(0,0,0,0.75)', border: 'none', borderRadius: 9999,
-                      padding: '3px 10px', color: 'white', fontSize: 9, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234,88,12,0.85)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.75)' }}
-                  >
-                    Remix this
-                  </button>
-                </div>
-              )}
-
-              {/* Dot nav (center) */}
-              {isCenter && (
-                <div style={{ position: 'absolute', bottom: 3, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 3 }}>
-                  {[0,1,2,3,4].map(i => (
-                    <div key={i} style={{
-                      width: i === 2 ? 10 : 3, height: 2.5, borderRadius: 2,
-                      background: i === 2 ? 'white' : 'rgba(255,255,255,0.4)',
-                      transition: 'all 0.3s'
-                    }} />
-                  ))}
-                </div>
-              )}
-
-              {/* Dot nav (adjacent) */}
-              {!isCenter && Math.abs(offset) === 1 && (
-                <div style={{ position: 'absolute', bottom: 2, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                  {[0,1,2,3].map(i => (
-                    <div key={i} style={{ width: i === 1 ? 7 : 2.5, height: 2, borderRadius: 2, background: i === 1 ? 'white' : 'rgba(255,255,255,0.4)' }} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Right arrow */}
-      <button
-        onClick={() => onNavigate(1)}
-        style={{
-          position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-          zIndex: 20, width: 30, height: 30, borderRadius: '50%',
-          background: 'white', border: '1px solid #E5E7EB',
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
-        }}
-      >
-        <ChevronRight size={16} color="#374151" />
-      </button>
-    </div>
-  )
+const phoneStyle = {
+  width: 220, aspectRatio: '9/16', borderRadius: 20, overflow: 'hidden',
+  position: 'relative', boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+  display: 'flex', flexDirection: 'column',
 }
 
-/* ── Trending panel (right side) ─────────────────────── */
-function TrendingPanel({ tab, onRemix, onSave, onDownload, textOverrides, onTextEdit, textStyles, onAdapt }) {
-  const [activeIdx, setActiveIdx] = useState(2)
-  const [activeView, setActiveView] = useState('trending')
-  const [activeTag, setActiveTag] = useState(null)
-  const [slideIdxMap, setSlideIdxMap] = useState({})
-
-  // Reset carousel to index 0 when tab changes
-  useEffect(() => {
-    setActiveIdx(0)
-    setActiveTag(null)
-    setSlideIdxMap({})
-  }, [tab])
-
-  const filtered = VIRAL_CONTENT.filter(v => {
-    // First filter by content type matching the active tab
-    if (v.contentType !== tab) return false
-    // Then apply tag filter on top
-    if (activeTag) return v.tags?.includes(activeTag)
-    return true
-  })
-
-  const navigate = (dir) => {
-    setActiveIdx(i => (i + dir + filtered.length) % filtered.length)
-  }
-
-  const handleSlideNav = (videoId, dirOrIdx, isAbsolute = false) => {
-    setSlideIdxMap(prev => {
-      const cur = prev[videoId] || 0
-      const video = filtered.find(v => v.id === videoId)
-      const maxIdx = (video?.slides?.length || 1) - 1
-      if (isAbsolute) {
-        return { ...prev, [videoId]: Math.max(0, Math.min(dirOrIdx, maxIdx)) }
-      }
-      const next = cur + dirOrIdx
-      return { ...prev, [videoId]: Math.max(0, Math.min(next, maxIdx)) }
-    })
-  }
-
-  const currentVideo = filtered[activeIdx % filtered.length] || filtered[0]
-  const currentTags = currentVideo?.tags || []
-
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* Sub tabs + nav arrows */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 12, alignItems: 'center', flexShrink: 0 }}>
-        <button
-          onClick={() => setActiveView('trending')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 14px', borderRadius: 9999,
-            border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            background: activeView === 'trending' ? '#FFF7ED' : 'transparent',
-            color: activeView === 'trending' ? '#EA580C' : '#9CA3AF',
-            transition: 'all 0.15s'
-          }}
-        >
-          <span style={{ fontSize: 14 }}>&#128293;</span> Trending Content
-        </button>
-        <div style={{ width: 1, height: 16, background: '#E5E7EB', margin: '0 4px' }} />
-        <button
-          onClick={() => setActiveView('preview')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 14px', borderRadius: 9999,
-            border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            background: activeView === 'preview' ? '#F9FAFB' : 'transparent',
-            color: activeView === 'preview' ? '#374151' : '#9CA3AF',
-            transition: 'all 0.15s'
-          }}
-        >
-          <span style={{ fontSize: 13 }}>&#9998;</span> Preview
-        </button>
-        <div style={{ flex: 1 }} />
-        {/* Top nav arrows */}
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            width: 28, height: 28, borderRadius: '50%',
-            border: '1px solid #E5E7EB', background: 'white',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginRight: 6, fontSize: 14, color: '#374151'
-          }}
-        >‹</button>
-        <button
-          onClick={() => navigate(1)}
-          style={{
-            width: 28, height: 28, borderRadius: '50%',
-            border: '1px solid #E5E7EB', background: 'white',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, color: '#374151'
-          }}
-        >›</button>
-      </div>
-
-      {/* Tag pills for current video */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0, minHeight: 26 }}>
-        {currentTags.slice(0, 4).map(tag => {
-          const colors = TAG_COLORS[tag] || { bg: '#F3F4F6', text: '#374151' }
-          const isActive = activeTag === tag
-          return (
-            <button
-              key={tag}
-              onClick={() => { setActiveTag(isActive ? null : tag); setActiveIdx(0) }}
-              style={{
-                padding: '3px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
-                background: isActive ? colors.text : colors.bg,
-                color: isActive ? 'white' : colors.text,
-                border: 'none', cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                transform: isActive ? 'scale(1.05)' : 'scale(1)',
-              }}
-            >{tag}</button>
-          )
-        })}
-      </div>
-
-      {/* 3D Carousel */}
-      {filtered.length > 0 && (
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <VideoCarousel
-            videos={filtered}
-            activeIdx={activeIdx % filtered.length}
-            onNavigate={navigate}
-            onRemix={onRemix}
-            slideIdxMap={slideIdxMap}
-            onSlideNav={handleSlideNav}
-            onSave={onSave}
-            onDownload={onDownload}
-            textOverrides={textOverrides}
-            onTextEdit={onTextEdit}
-            textStyles={textStyles}
-            onAdapt={onAdapt}
-          />
-        </div>
-      )}
-    </div>
-  )
+const phoneCentered = {
+  position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+  alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center',
 }
 
-/* ── Left form ───────────────────────────────────────── */
-function ContentForm({ tab, onGenerate, loading, trendingThumb, mode, onModeChange, themeBadge, selectedVideo }) {
-  const [form, setForm] = useState({ isBusiness: true, prompt: '' })
-
-  // Sync mode from parent
-  const currentMode = mode || 'remix'
-
-  const typeMap = {
-    slideshow: 'slideshow',
-    'wall-of-text': 'wall-of-text',
-    'video-hook-and-demo': 'video-hook-and-demo',
-    'green-screen-meme': 'green-screen-meme'
-  }
-
-  const placeholders = {
-    slideshow: 'What should this slideshow be about?',
-    'wall-of-text': 'What should the wall of text caption be about?',
-    'video-hook-and-demo': 'What should the hook caption be about?',
-    'green-screen-meme': 'What should this meme be about?'
-  }
-
-  const trendingLabels = {
-    slideshow: 'Trending slideshow',
-    'wall-of-text': 'Trending wall of text',
-    'video-hook-and-demo': 'Trending video hook',
-    'green-screen-meme': 'Trending meme',
-  }
-
-  // Use selectedVideo thumbnail if available, otherwise fallback to trendingThumb
-  const displayThumb = selectedVideo?.thumbnail || trendingThumb
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Theme badge (from URL param) */}
-      {themeBadge && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '5px 12px', borderRadius: 9999, alignSelf: 'flex-start',
-          background: 'linear-gradient(135deg, #FFF7ED, #FEF3C7)',
-          border: '1px solid #FED7AA',
-        }}>
-          <span style={{ fontSize: 12 }}>&#127912;</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#C2410C' }}>{themeBadge}</span>
-        </div>
-      )}
-
-      {/* Mode toggle */}
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>Mode</div>
-        <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
-          {[{ l: '⊕ Create New', v: 'create', icon: true }, { l: '⤭ Remix', v: 'remix', icon: true }].map(o => (
-            <button
-              key={o.v}
-              onClick={() => onModeChange(o.v)}
-              style={{
-                flex: 1, padding: '10px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: currentMode === o.v ? 600 : 400,
-                background: currentMode === o.v ? 'white' : 'transparent',
-                color: currentMode === o.v ? '#111827' : '#6B7280',
-                boxShadow: currentMode === o.v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.15s'
-              }}
-            >
-              {o.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Mention business */}
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>Mention your business?</div>
-        <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
-          {[{ l: 'Yes', v: true }, { l: 'No', v: false }].map(o => (
-            <button
-              key={String(o.v)}
-              onClick={() => setForm(f => ({ ...f, isBusiness: o.v }))}
-              style={{
-                flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontSize: 14, fontWeight: 600,
-                background: form.isBusiness === o.v ? '#EA580C' : 'transparent',
-                color: form.isBusiness === o.v ? 'white' : '#6B7280',
-                transition: 'all 0.15s'
-              }}
-            >
-              {o.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Prompt */}
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
-          Prompt <span style={{ color: '#9CA3AF', fontWeight: 400, fontSize: 13 }}>(Optional)</span>
-        </div>
-        <textarea
-          value={form.prompt}
-          onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
-          placeholder={placeholders[tab] || 'What should this content be about?'}
-          style={{
-            width: '100%', padding: '10px 12px', borderRadius: 10,
-            border: '1px solid #E5E7EB', fontSize: 13, color: '#374151',
-            resize: 'none', height: 80, outline: 'none',
-            fontFamily: 'inherit', background: 'white', lineHeight: 1.5,
-            boxSizing: 'border-box'
-          }}
-        />
-      </div>
-
-      {/* Generate button — only generates content, no theme selector */}
-      <button
-        onClick={() => onGenerate({
-          topic: form.prompt || 'viral content for my business',
-          platform: 'tiktok',
-          tone: 'engaging',
-          type: typeMap[tab] || 'slideshow',
-          mode: currentMode,
-          isBusiness: form.isBusiness
-        })}
-        disabled={loading}
-        style={{
-          width: '100%', padding: '14px', borderRadius: 12, border: 'none',
-          background: loading ? '#FDBA74' : '#FB923C',
-          color: 'white', fontWeight: 700, fontSize: 15,
-          cursor: loading ? 'not-allowed' : 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          transition: 'all 0.15s',
-          marginTop: 8
-        }}
-      >
-        {loading ? (
-          <>
-            <div style={{
-              width: 16, height: 16,
-              border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white',
-              borderRadius: '50%', animation: 'spin 0.8s linear infinite'
-            }} />
-            Generating...
-          </>
-        ) : (
-          <>
-            <span style={{ fontSize: 16 }}>✂</span> Generate
-          </>
-        )}
-      </button>
-    </div>
-  )
-}
-
-/* ── Slideshow preview ───────────────────────────────── */
-function SlideshowPreview({ data, onClear, onSave, onDownload }) {
-  const [idx, setIdx] = useState(0)
-  const COLORS = ['#EA580C','#1a1a1a','#6366f1','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ef4444']
-  const slide = data.slides?.[idx]
-  if (!slide) return null
-  const bg = COLORS[idx % COLORS.length]
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', paddingTop: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: 320, marginBottom: 16 }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>Slideshow Preview</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onSave} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Save size={12} /> Save
-          </button>
-          {onDownload && (
-            <button onClick={onDownload} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Download size={12} /> Download
-            </button>
-          )}
-          <button onClick={onClear} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, color: '#6B7280' }}>Clear</button>
-        </div>
-      </div>
-
-      {/* Slide */}
-      <div style={{
-        width: 240, aspectRatio: '9/16', borderRadius: 18, overflow: 'hidden',
-        background: slide.bgImage ? `url(${slide.bgImage}) center/cover` : bg,
-        position: 'relative', boxShadow: '0 16px 48px rgba(0,0,0,0.3)'
-      }}>
-        {slide.bgImage && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />}
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center'
-        }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>{slide.emoji}</div>
-          <div style={{
-            color: 'white', fontWeight: 800, fontSize: 17, lineHeight: 1.3, marginBottom: 10,
-            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
-          }}>{slide.title}</div>
-          <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: 12, lineHeight: 1.6 }}>{slide.body}</div>
-        </div>
-        {/* Dots */}
-        <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 4 }}>
-          {data.slides.map((_, i) => (
-            <div key={i} onClick={() => setIdx(i)} style={{
-              width: i === idx ? 14 : 4, height: 3, borderRadius: 2,
-              background: i === idx ? 'white' : 'rgba(255,255,255,0.4)',
-              cursor: 'pointer', transition: 'all 0.3s'
-            }} />
-          ))}
-        </div>
-      </div>
-
-      {/* Nav */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginTop: 14 }}>
-        <button onClick={() => setIdx(i => Math.max(0, i-1))} disabled={idx === 0}
-          style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #E5E7EB', background: 'white', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ChevronLeft size={14} />
-        </button>
-        <span style={{ fontSize: 13, color: '#6B7280', minWidth: 60, textAlign: 'center' }}>{idx + 1} / {data.slides.length}</span>
-        <button onClick={() => setIdx(i => Math.min(data.slides.length-1, i+1))} disabled={idx === data.slides.length-1}
-          style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #E5E7EB', background: 'white', cursor: idx === data.slides.length-1 ? 'default' : 'pointer', opacity: idx === data.slides.length-1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ChevronRight size={14} />
-        </button>
-      </div>
-
-      {/* Caption */}
-      {slide.cta && (
-        <div style={{ marginTop: 16, padding: '10px 16px', background: '#FFF7ED', borderRadius: 10, border: '1px solid #FED7AA', maxWidth: 280, width: '100%', textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: '#C2410C', fontWeight: 600 }}>Add a CTA caption and hashtags before posting</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Text result preview ─────────────────────────────── */
-function TextPreview({ result, onClear }) {
-  const [copied, setCopied] = useState(false)
-  const copy = t => { navigator.clipboard.writeText(t); setCopied(true); setTimeout(() => setCopied(false), 2000) }
-
-  const labels = { 'wall-of-text': 'Generated Post', 'video-hook-and-demo': 'Video Script', 'green-screen-meme': 'Meme Content' }
-  const content = result.data?.content || ''
-
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{labels[result.type] || 'Generated Content'}</span>
-        <button onClick={onClear} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 12, color: '#6B7280' }}>Clear</button>
-      </div>
-
-      {/* Preview pane */}
-      {result.type === 'green-screen-meme' && result.data?.bgVideo?.thumbnail && (
-        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 12, aspectRatio: '9/16', maxWidth: 200 }}>
-          <img src={result.data.bgVideo.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 12, textAlign: 'center' }}>
-            {content.match(/TOP_TEXT: (.+)/)?.[1] && (
-              <div style={{ color: 'white', fontWeight: 900, fontSize: 14, textShadow: '0 2px 4px rgba(0,0,0,0.8)', marginBottom: 'auto' }}>
-                {content.match(/TOP_TEXT: (.+)/)[1]}
-              </div>
-            )}
-            {content.match(/BOTTOM_TEXT: (.+)/)?.[1] && (
-              <div style={{ color: 'white', fontWeight: 900, fontSize: 14, textShadow: '0 2px 4px rgba(0,0,0,0.8)', marginTop: 'auto' }}>
-                {content.match(/BOTTOM_TEXT: (.+)/)[1]}
-              </div>
-            )}
+/* -- PhonePreview: renders content inside a phone-shaped frame -- */
+function PhonePreview({ type, data, slideIdx, setSlideIdx }) {
+  if (type === 'slideshow' && data?.slides) {
+    const slides = data.slides
+    const slide = slides[slideIdx] || slides[0]
+    const bg = SLIDE_COLORS[slideIdx % SLIDE_COLORS.length]
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ ...phoneStyle, background: slide.bgImage ? `url(${slide.bgImage}) center/cover` : bg }}>
+          {slide.bgImage && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />}
+          <div style={phoneCentered}>
+            {slide.emoji && <div style={{ fontSize: 40, marginBottom: 10 }}>{slide.emoji}</div>}
+            <div style={{ color: 'white', fontWeight: 800, fontSize: 16, lineHeight: 1.3, marginBottom: 8, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{slide.title}</div>
+            <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: 11, lineHeight: 1.5 }}>{slide.body}</div>
           </div>
         </div>
-      )}
-
-      <div style={{
-        background: '#F9FAFB', borderRadius: 10, padding: '12px 14px',
-        fontSize: 13, lineHeight: 1.7, color: '#111827', whiteSpace: 'pre-wrap',
-        flex: 1, overflowY: 'auto', border: '1px solid #E5E7EB',
-        fontFamily: result.type === 'video-hook-and-demo' ? 'monospace' : 'inherit'
-      }}>
-        {content}
+        {slides.length > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+            <button onClick={() => setSlideIdx(Math.max(0, slideIdx - 1))} disabled={slideIdx === 0}
+              style={navBtn(slideIdx === 0)}><ChevronLeft size={13} /></button>
+            <div style={{ display: 'flex', gap: 5 }}>
+              {slides.map((_, i) => (
+                <div key={i} onClick={() => setSlideIdx(i)} style={{
+                  width: 7, height: 7, borderRadius: '50%', cursor: 'pointer',
+                  background: i === slideIdx ? '#EA580C' : '#D1D5DB', transition: 'background 0.2s',
+                }} />
+              ))}
+            </div>
+            <button onClick={() => setSlideIdx(Math.min(slides.length - 1, slideIdx + 1))} disabled={slideIdx === slides.length - 1}
+              style={navBtn(slideIdx === slides.length - 1)}><ChevronRight size={13} /></button>
+          </div>
+        )}
       </div>
+    )
+  }
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button
-          onClick={() => copy(content)}
+  const content = data?.content || data?.adaptedText || ''
+  if (!content) return null
+
+  if (type === 'wall-of-text') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ ...phoneStyle, background: 'linear-gradient(145deg, #1a1a2e, #16213e, #0f3460)' }}>
+          <div style={{ ...phoneCentered, justifyContent: 'flex-start', paddingTop: 28, paddingBottom: 28, overflow: 'hidden' }}>
+            <div style={{
+              color: 'white', fontWeight: 800, fontSize: 14, lineHeight: 1.45,
+              textShadow: '0 2px 6px rgba(0,0,0,0.5)', textAlign: 'left', width: '100%',
+              overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 16, WebkitBoxOrient: 'vertical',
+            }}>{content}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'video-hook-and-demo') {
+    const lines = content.split('\n').filter(Boolean)
+    const hook = lines[0] || ''
+    const body = lines.slice(1).join('\n')
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ ...phoneStyle, background: 'linear-gradient(145deg, #0f0c29, #302b63, #24243e)' }}>
+          <div style={{ ...phoneCentered, justifyContent: 'flex-start', paddingTop: 32, gap: 14 }}>
+            <div style={{
+              color: '#FB923C', fontWeight: 900, fontSize: 15, lineHeight: 1.3,
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)', textAlign: 'center', textTransform: 'uppercase',
+              borderBottom: '2px solid rgba(251,146,60,0.4)', paddingBottom: 10, width: '100%',
+            }}>{hook}</div>
+            <div style={{
+              color: 'rgba(255,255,255,0.9)', fontSize: 11, lineHeight: 1.6, textAlign: 'left',
+              fontFamily: 'monospace', whiteSpace: 'pre-wrap', width: '100%',
+              overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 12, WebkitBoxOrient: 'vertical',
+            }}>{body}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'green-screen-meme') {
+    const parts = content.split('\n').filter(Boolean)
+    const topText = parts[0] || ''
+    const bottomText = parts.slice(1).join(' ') || ''
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ ...phoneStyle, background: 'linear-gradient(145deg, #00b09b, #96c93d)' }}>
+          <div style={{ ...phoneCentered, justifyContent: 'space-between', padding: 24 }}>
+            <div style={memeTextStyle}>{topText}</div>
+            <div style={{ fontSize: 48 }}>&#x1F602;</div>
+            <div style={memeTextStyle}>{bottomText}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ ...phoneStyle, background: 'linear-gradient(145deg, #1a1a2e, #16213e)' }}>
+        <div style={phoneCentered}>
+          <div style={{ color: 'white', fontWeight: 700, fontSize: 13, lineHeight: 1.5 }}>{content}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const memeTextStyle = {
+  color: 'white', fontWeight: 900, fontSize: 16, lineHeight: 1.2,
+  textTransform: 'uppercase', textAlign: 'center',
+  textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 8px rgba(0,0,0,0.5)',
+}
+
+function navBtn(disabled) {
+  return {
+    width: 28, height: 28, borderRadius: '50%', border: '1px solid #E5E7EB',
+    background: 'white', cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }
+}
+
+/* -- TrendingCard -- */
+function TrendingCard({ video, onRemix, remixingId }) {
+  const isRemixing = remixingId === video.id
+  const thumb = video.thumbnail || video.slides?.[0]?.imageUrl || ''
+  const caption = video.caption || video.textOverlay || video.hookText || video.topText || ''
+
+  return (
+    <div style={{
+      width: 210, minWidth: 210, borderRadius: 14, overflow: 'hidden',
+      background: 'white', border: '1px solid #E5E7EB',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)', flexShrink: 0,
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '9/12', background: '#111', overflow: 'hidden' }}>
+        {video.videoUrl ? (
+          <video src={video.videoUrl} poster={thumb} muted loop playsInline
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onMouseEnter={e => e.target.play()}
+            onMouseLeave={e => { e.target.pause(); e.target.currentTime = 0 }}
+          />
+        ) : thumb ? (
+          <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 12 }}>No preview</div>
+        )}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }} />
+      </div>
+      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+        <p style={{
+          margin: 0, fontSize: 12, lineHeight: 1.4, color: '#374151', fontWeight: 500,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>{caption}</p>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#9CA3AF' }}>
+          {video.num_likes != null && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Heart size={11} /> {formatNumber(video.num_likes)}</span>
+          )}
+          {video.num_views != null && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Eye size={11} /> {formatNumber(video.num_views)}</span>
+          )}
+        </div>
+        <button onClick={() => onRemix(video)} disabled={isRemixing}
           style={{
-            flex: 1, padding: '9px', border: '1px solid #E5E7EB',
-            borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
-          }}
-        >
-          <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
-        </button>
-        <button
-          onClick={() => {
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-            const link = document.createElement('a')
-            link.href = URL.createObjectURL(blob)
-            link.download = `${result.type}-content.txt`
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            URL.revokeObjectURL(link.href)
-          }}
-          style={{
-            flex: 1, padding: '9px', border: '1px solid #E5E7EB',
-            borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
-          }}
-        >
-          <Download size={13} /> Download
+            marginTop: 'auto', padding: '7px 0', borderRadius: 8, border: 'none',
+            background: isRemixing ? '#FDBA74' : '#FB923C', color: 'white',
+            fontWeight: 600, fontSize: 12, cursor: isRemixing ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+            transition: 'background 0.15s',
+          }}>
+          {isRemixing ? (
+            <><div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Remixing...</>
+          ) : (
+            <><RefreshCw size={12} /> Remix this</>
+          )}
         </button>
       </div>
     </div>
   )
 }
 
-/* ── Main Content page ───────────────────────────────── */
+/* -- Main Content page -- */
 export default function Content() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { brand, remixResult, setRemixResult, clearRemixResult } = useStore()
   const [tab, setTab] = useState('slideshow')
-  const [result, setResult] = useState(null)
+  const [mode, setMode] = useState('create')
+  const [isBusiness, setIsBusiness] = useState(true)
+  const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('remix')
-  const [selectedVideo, setSelectedVideo] = useState(null)
-  const [themeBadge, setThemeBadge] = useState(null)
+  const [remixingId, setRemixingId] = useState(null)
+  const [result, setResult] = useState(null)
+  const [remixSource, setRemixSource] = useState(null)
+  const [activeTag, setActiveTag] = useState(null)
   const [toast, setToast] = useState(null)
-  const [textOverrides, setTextOverrides] = useState({})
-  const [textStyles, setTextStyles] = useState({})
-  const [editingId, setEditingId] = useState(null)
-  const [editText, setEditText] = useState('')
-  const [adaptingId, setAdaptingId] = useState(null)
+  const [slideIdx, setSlideIdx] = useState(0)
+  const [copied, setCopied] = useState(false)
+  const [rendering, setRendering] = useState(false)
+  const [mp4Url, setMp4Url] = useState(null)
+  const [savingItem, setSavingItem] = useState(false)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200) }
 
-  const handleContentSave = async (video) => {
-    const res = await saveToLibrary(video)
-    showToast(res.message)
-  }
-
-  const handleContentDownload = async (video) => {
-    showToast('Downloading...')
-    await downloadContent(video)
-  }
-
-  // Text editing handlers
-  const handleTextEdit = (videoId) => {
-    const video = VIRAL_CONTENT.find(v => v.id === videoId)
-    if (!video) return
-    const existing = textOverrides[videoId]
-    const original = getDisplayText(video, {})
-    setEditText(existing ?? original)
-    setEditingId(videoId)
-  }
-
-  const handleTextSave = () => {
-    if (editingId == null) return
-    setTextOverrides(prev => ({ ...prev, [editingId]: editText }))
-    setEditingId(null)
-    showToast('Text updated')
-  }
-
-  const handleStyleChange = (videoId, key, value) => {
-    setTextStyles(prev => ({
-      ...prev,
-      [videoId]: { ...(prev[videoId] || {}), [key]: value }
-    }))
-  }
-
-  const handleAdapt = async (video) => {
-    if (adaptingId) return
-    setAdaptingId(video.id)
-    try {
-      const originalText = textOverrides[video.id] ?? getDisplayText(video, {})
-      const { data } = await api.post('/content/remix', {
-        originalText,
-        contentType: video.contentType,
-      })
-      if (data.adaptedText) {
-        setTextOverrides(prev => ({ ...prev, [video.id]: data.adaptedText }))
-        showToast('Adapted to your brand!')
-      }
-    } catch {
-      showToast('Adapt failed — check brand settings')
-    } finally {
-      setAdaptingId(null)
-    }
-  }
-
-  // Read URL params on mount: /content?videoId=X&theme=Y&mode=remix
   useEffect(() => {
-    const videoId = searchParams.get('videoId')
-    const theme = searchParams.get('theme')
-    const urlMode = searchParams.get('mode')
-
-    if (videoId) {
-      const found = VIRAL_CONTENT.find(v => String(v.id) === String(videoId))
-      if (found) {
-        setSelectedVideo(found)
+    const urlTab = searchParams.get('tab')
+    if (urlTab && TABS.find(t => t.id === urlTab)) setTab(urlTab)
+    if (searchParams.get('mode') === 'remix') setMode('remix')
+    if (remixResult) {
+      const rType = remixResult.type || 'wall-of-text'
+      const tabType = rType === 'video-hook' ? 'video-hook-and-demo' : rType === 'green-screen' ? 'green-screen-meme' : rType
+      if (rType === 'slideshow' && remixResult.slides) {
+        setResult({ type: 'slideshow', data: { slides: remixResult.slides, topic: 'Remixed content' } })
+      } else {
+        setResult({ type: tabType, data: { content: remixResult.content || remixResult.adaptedText || '' } })
       }
-    }
-    if (theme) {
-      setThemeBadge(theme)
-    }
-    if (urlMode === 'remix') {
+      if (['slideshow','wall-of-text','video-hook-and-demo','green-screen-meme'].includes(tabType)) setTab(tabType)
       setMode('remix')
+      setSlideIdx(0)
+      clearRemixResult()
     }
   }, [searchParams])
 
-  // Get thumbnail for "Trending X" field
-  const typeMap = { slideshow: 'slideshow', 'wall-of-text': 'wall-of-text', 'video-hook-and-demo': 'video-hook-and-demo', 'green-screen-meme': 'green-screen-meme' }
-  const tabVids = VIRAL_CONTENT.filter(v => {
-    const t = typeMap[tab]
-    if (t === 'slideshow') return v.contentType === 'slideshow' || !v.contentType
-    return true
-  })
-  const trendingThumb = tabVids[0]?.thumbnail
+  const filteredContent = tab === 'custom' ? [] : VIRAL_CONTENT.filter(v => v.contentType === tab)
+  const tagFilteredContent = activeTag ? filteredContent.filter(v => v.tags?.includes(activeTag)) : filteredContent
+  const availableTags = [...new Set(filteredContent.flatMap(v => v.tags || []))].slice(0, 12)
 
-  // Handle "Remix this" from carousel
-  const handleRemix = (video) => {
-    setSelectedVideo(video)
-    setMode('remix')
-  }
-
-  const handleGenerate = async ({ topic, platform, tone, type }) => {
-    setLoading(true); setResult(null)
+  const handleGenerate = async () => {
+    const tabDef = TABS.find(t => t.id === tab)
+    if (!tabDef?.endpoint) return
+    setLoading(true); setResult(null); setRemixSource(null); setSlideIdx(0)
     try {
-      const { data } = await api.post(`/content/${type}`, { topic, platform, tone })
-      setResult({ type, data })
-    } catch {
-      alert('Generation failed. Check your API keys.')
-    } finally {
-      setLoading(false)
-    }
+      const payload = { topic: prompt || 'viral content for my business', platform: 'tiktok', tone: 'engaging' }
+      if (isBusiness && brand?.brandName) { payload.brandName = brand.brandName; payload.mentionBusiness = true }
+      const { data } = await api.post(tabDef.endpoint, payload)
+      setResult({ type: tab, data })
+    } catch (err) {
+      showToast('Generation failed. Check API keys.')
+    } finally { setLoading(false) }
   }
 
-  const handleSave = async () => {
+  const handleRemix = async (video) => {
+    setRemixingId(video.id); setMode('remix')
+    const originalText = video.caption || video.textOverlay || video.hookText || video.topText || ''
+    try {
+      const { data } = await api.post('/content/remix', { originalText, contentType: video.contentType })
+      const adaptedText = data.adaptedText || data.content || ''
+      if (video.contentType === 'slideshow' && data.slides) {
+        setResult({ type: 'slideshow', data: { slides: data.slides, topic: 'Remixed content' } })
+      } else {
+        setResult({ type: video.contentType, data: { content: adaptedText } })
+      }
+      setRemixSource(originalText.slice(0, 80))
+      setSlideIdx(0)
+      showToast('Remixed to your brand!')
+    } catch { showToast('Remix failed - check brand settings') }
+    finally { setRemixingId(null) }
+  }
+
+  const getContentText = () => {
+    if (!result) return ''
+    if (result.type === 'slideshow' && result.data?.slides) {
+      return result.data.slides.map(s => `${s.emoji || ''} ${s.title}\n${s.body}`).join('\n\n')
+    }
+    return result.data?.content || result.data?.adaptedText || ''
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(getContentText())
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    const text = getContentText()
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `${result?.type || 'content'}-output.txt`
+    document.body.appendChild(link); link.click(); document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  }
+
+  const handleExportMP4 = async () => {
     if (!result) return
+    setRendering(true)
+    setMp4Url(null)
     try {
-      await api.post('/library/save', {
-        type: result.type,
-        platform: 'tiktok',
-        title: result.data.topic || 'Generated content',
-        content_json: result.data,
-        thumbnail_url: result.data.slides?.[0]?.bgImage || ''
-      })
-      alert('Saved to Library!')
-    } catch {
-      alert('Save failed.')
+      // Build render data from current result
+      const contentType = result.type === 'video-hook' ? 'video-hook-and-demo'
+        : result.type === 'green-screen' ? 'green-screen-meme'
+        : result.type || tab
+      const renderData = { brandName: brand?.brandName || '' }
+
+      if (result.type === 'slideshow' && result.data?.slides) {
+        renderData.slides = result.data.slides.map(s => ({
+          title: s.title || s.heading || '',
+          body: s.body || s.text || s.subtitle || '',
+          bgColor: s.bgColor || null,
+        }))
+      } else if (result.type === 'video-hook' || result.type === 'video-hook-and-demo') {
+        const raw = result.data?.content || getContentText()
+        const hookMatch = raw.match(/hook[:\s]+"?(.+?)("|\n|$)/i)
+        renderData.hook = hookMatch ? hookMatch[1] : raw.slice(0, 60)
+        renderData.body = raw.replace(hookMatch?.[0] || '', '').trim()
+      } else if (result.type === 'green-screen' || result.type === 'green-screen-meme') {
+        const raw = result.data?.content || getContentText()
+        const lines = raw.split('\n').filter(l => l.trim())
+        renderData.topText = lines[0] || 'Top text'
+        renderData.bottomText = lines[lines.length - 1] || 'Bottom text'
+      } else {
+        renderData.text = getContentText()
+      }
+
+      const resp = await api.post('/render', { contentType, data: renderData })
+      if (resp.data?.url) {
+        setMp4Url(resp.data.url)
+        // Auto-download
+        const link = document.createElement('a')
+        link.href = resp.data.url
+        link.download = resp.data.fileName || 'export.mp4'
+        document.body.appendChild(link); link.click(); document.body.removeChild(link)
+        showToast('MP4 exported!')
+      }
+    } catch (e) {
+      console.error('Export MP4 error:', e)
+      showToast('MP4 export failed')
+    } finally {
+      setRendering(false)
     }
   }
 
-  const isTextResult = result && ['wall-of-text','video-hook-and-demo','green-screen-meme'].includes(result.type)
-  const isSlideshowResult = result && result.type === 'slideshow' && result.data?.slides
+  const handleSaveAndEdit = async () => {
+    if (!result) return
+    setSavingItem(true)
+    try {
+      const contentType = result.type === 'video-hook' ? 'video-hook-and-demo'
+        : result.type === 'green-screen' ? 'green-screen-meme'
+        : result.type || tab
+
+      const payload = { type: contentType, topic: prompt || 'content' }
+
+      // Pass structured data directly based on content type
+      if (result.type === 'slideshow' && result.data?.slides) {
+        payload.structuredContent = {
+          slides: result.data.slides.map(s => ({
+            title: s.title || '', body: s.body || '',
+          })),
+        }
+      }
+
+      const { data } = await api.post('/content-items/generate', payload)
+      if (data?.id) {
+        navigate(`/edit/${data.id}`)
+      }
+    } catch (e) {
+      console.error('Save & Edit error:', e)
+      showToast('Failed to create content item')
+    } finally {
+      setSavingItem(false)
+    }
+  }
+
+  const isCustom = tab === 'custom'
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FAFAFA' }}>
-
-      {/* Top tabs */}
+      {/* Tab navigation */}
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'center',
         padding: '12px 24px', background: 'white',
-        borderBottom: '1px solid rgba(229,231,235,0.8)', flexShrink: 0, gap: 6
+        borderBottom: '1px solid rgba(229,231,235,0.8)', flexShrink: 0, gap: 6,
       }}>
         {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => { setTab(t.id); setResult(null) }}
+          <button key={t.id}
+            onClick={() => { setTab(t.id); setResult(null); setRemixSource(null); setActiveTag(null); setSlideIdx(0) }}
             style={{
               padding: '7px 18px', border: '1px solid',
               borderColor: tab === t.id ? '#D1D5DB' : 'transparent',
@@ -1147,203 +439,295 @@ export default function Content() {
               fontWeight: tab === t.id ? 600 : 400,
               color: tab === t.id ? '#111827' : '#6B7280',
               boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s', whiteSpace: 'nowrap'
-            }}
-          >
+              transition: 'all 0.15s', whiteSpace: 'nowrap',
+            }}>
+            {t.id === 'custom' && <Upload size={13} style={{ marginRight: 5, verticalAlign: 'middle' }} />}
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Body: left form | right panel */}
+      {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left panel — form */}
+        {/* Left panel */}
         <div style={{
-          width: 300, background: 'white', borderRight: '1px solid rgba(229,231,235,0.8)',
-          padding: '20px', overflowY: 'auto', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 0
+          width: 360, background: 'white', borderRight: '1px solid rgba(229,231,235,0.8)',
+          padding: 20, overflowY: 'auto', flexShrink: 0,
+          display: 'flex', flexDirection: 'column', gap: 16,
         }}>
-          <ContentForm
-            tab={tab}
-            onGenerate={handleGenerate}
-            loading={loading}
-            trendingThumb={trendingThumb}
-            mode={mode}
-            onModeChange={setMode}
-            themeBadge={themeBadge}
-            selectedVideo={selectedVideo}
-          />
+          {isCustom ? (
+            <CustomUpload showToast={showToast} />
+          ) : (
+            <>
+              {/* Mode toggle */}
+              <PillToggle label="Mode" options={[{ label: 'Create New', value: 'create' }, { label: 'Remix', value: 'remix' }]}
+                value={mode} onChange={setMode} />
+
+              {/* Mention business */}
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
+                  Mention your business?
+                  {isBusiness && brand?.brandName && <span style={{ fontWeight: 400, fontSize: 12, color: '#9CA3AF', marginLeft: 8 }}>({brand.brandName})</span>}
+                </div>
+                <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
+                  {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map(o => (
+                    <button key={String(o.value)} onClick={() => setIsBusiness(o.value)}
+                      style={{
+                        flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        fontSize: 14, fontWeight: 600,
+                        background: isBusiness === o.value ? '#EA580C' : 'transparent',
+                        color: isBusiness === o.value ? 'white' : '#6B7280',
+                        transition: 'all 0.15s',
+                      }}>{o.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Prompt */}
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
+                  Prompt <span style={{ color: '#9CA3AF', fontWeight: 400, fontSize: 13 }}>(Optional)</span>
+                </div>
+                <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+                  placeholder={`What should this ${tab.replace(/-/g, ' ')} be about?`}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 10,
+                    border: '1px solid #E5E7EB', fontSize: 13, color: '#374151',
+                    resize: 'none', height: 80, outline: 'none',
+                    fontFamily: 'inherit', background: 'white', lineHeight: 1.5, boxSizing: 'border-box',
+                  }} />
+              </div>
+
+              {/* Generate button */}
+              <button onClick={handleGenerate} disabled={loading}
+                style={{
+                  width: '100%', padding: 14, borderRadius: 12, border: 'none',
+                  background: loading ? '#FDBA74' : '#FB923C', color: 'white',
+                  fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'all 0.15s',
+                }}>
+                {loading ? (
+                  <><div className="fl-spin" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Generating...</>
+                ) : (
+                  <><Sparkles size={16} /> Generate</>
+                )}
+              </button>
+
+              {/* Result visual preview */}
+              {result && (
+                <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
+                      {result.type === 'slideshow' ? 'Slideshow' : result.type === 'wall-of-text' ? 'Wall of Text' : result.type === 'video-hook-and-demo' ? 'Video Script' : result.type === 'green-screen-meme' ? 'Meme' : 'Content'} Preview
+                    </span>
+                    <button onClick={() => { setResult(null); setRemixSource(null); setSlideIdx(0) }}
+                      style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontSize: 12, color: '#6B7280' }}>Clear</button>
+                  </div>
+
+                  {remixSource && (
+                    <div style={{
+                      fontSize: 11, color: '#9CA3AF', marginBottom: 10, padding: '6px 10px',
+                      background: '#F9FAFB', borderRadius: 8, border: '1px solid #F3F4F6',
+                    }}>
+                      <RefreshCw size={10} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                      Remixed from: "{remixSource}{remixSource.length >= 80 ? '...' : ''}"
+                    </div>
+                  )}
+
+                  <PhonePreview type={result.type} data={result.data} slideIdx={slideIdx} setSlideIdx={setSlideIdx} />
+
+                  {/* Copy / Download / Export MP4 */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                    <button onClick={handleCopy} style={actionBtn}>
+                      <Copy size={12} /> {copied ? 'Copied!' : 'Copy Text'}
+                    </button>
+                    <button onClick={handleDownload} style={actionBtn}>
+                      <Download size={12} /> Download
+                    </button>
+                    <button onClick={handleExportMP4} disabled={rendering} style={{
+                      ...actionBtn,
+                      background: rendering ? '#374151' : 'linear-gradient(135deg, #6C3CE1, #E84393)',
+                      color: 'white',
+                      border: 'none',
+                      opacity: rendering ? 0.8 : 1,
+                      cursor: rendering ? 'wait' : 'pointer',
+                      minWidth: 120,
+                    }}>
+                      {rendering ? (
+                        <>
+                          <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          Rendering...
+                        </>
+                      ) : (
+                        <><Film size={12} /> Export MP4</>
+                      )}
+                    </button>
+                    <button onClick={handleSaveAndEdit} disabled={savingItem} style={{
+                      ...actionBtn,
+                      background: savingItem ? '#374151' : 'linear-gradient(135deg, #10B981, #059669)',
+                      color: 'white',
+                      border: 'none',
+                      opacity: savingItem ? 0.8 : 1,
+                      cursor: savingItem ? 'wait' : 'pointer',
+                      minWidth: 120,
+                    }}>
+                      {savingItem ? (
+                        <>
+                          <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          Saving...
+                        </>
+                      ) : (
+                        <><Pencil size={12} /> Save &amp; Edit</>
+                      )}
+                    </button>
+                  </div>
+                  {mp4Url && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: '#059669', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Film size={11} /> MP4 ready —{' '}
+                      <a href={mp4Url} download style={{ color: '#6C3CE1', fontWeight: 600, textDecoration: 'underline' }}>Download again</a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        {/* Right panel — trending carousel or result preview */}
-        <div style={{ flex: 1, padding: '16px 20px 16px 16px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {isSlideshowResult ? (
-            <SlideshowPreview data={result.data} onClear={() => setResult(null)} onSave={handleSave} onDownload={() => {
-              const slide = result.data?.slides?.[0]
-              if (slide?.bgImage) {
-                const link = document.createElement('a')
-                link.href = slide.bgImage
-                link.download = 'slideshow.jpg'
-                link.target = '_blank'
-                link.click()
-              }
-              showToast('Downloading slideshow...')
-            }} />
-          ) : isTextResult ? (
-            <TextPreview result={result} onClear={() => setResult(null)} />
+        {/* Right panel - trending content */}
+        <div style={{ flex: 1, padding: '20px 24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {isCustom ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Upload size={32} color="#D1D5DB" />
+              </div>
+              <p style={{ color: '#9CA3AF', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
+                Upload your own content on the left, or switch tabs to browse trending content and remix it.
+              </p>
+            </div>
           ) : (
-            <TrendingPanel tab={tab} onRemix={handleRemix} onSave={handleContentSave} onDownload={handleContentDownload} textOverrides={textOverrides} onTextEdit={handleTextEdit} textStyles={textStyles} onAdapt={handleAdapt} />
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexShrink: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>
+                  Trending Content
+                  <span style={{ fontSize: 13, fontWeight: 400, color: '#9CA3AF', marginLeft: 8 }}>{tagFilteredContent.length} items</span>
+                </div>
+              </div>
+
+              {availableTags.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+                  <button onClick={() => setActiveTag(null)}
+                    style={{
+                      padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
+                      background: !activeTag ? '#111827' : '#F3F4F6',
+                      color: !activeTag ? 'white' : '#6B7280',
+                      border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                    }}>All</button>
+                  {availableTags.map(tag => {
+                    const colors = TAG_COLORS[tag] || { bg: '#F3F4F6', text: '#374151' }
+                    const isActive = activeTag === tag
+                    return (
+                      <button key={tag} onClick={() => setActiveTag(isActive ? null : tag)}
+                        style={{
+                          padding: '4px 12px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
+                          background: isActive ? colors.text : colors.bg,
+                          color: isActive ? 'white' : colors.text,
+                          border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                        }}>{tag}</button>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div style={{
+                flex: 1, overflowY: 'auto', overflowX: 'hidden',
+                display: 'flex', flexWrap: 'wrap', gap: 16, alignContent: 'flex-start', paddingBottom: 20,
+              }}>
+                {tagFilteredContent.length > 0 ? (
+                  tagFilteredContent.slice(0, 50).map(video => (
+                    <TrendingCard key={video.id} video={video} onRemix={handleRemix} remixingId={remixingId} />
+                  ))
+                ) : (
+                  <div style={{ width: '100%', textAlign: 'center', paddingTop: 60, color: '#9CA3AF', fontSize: 14 }}>
+                    No trending content for this filter.
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Text editing modal */}
-      {editingId != null && (() => {
-        const curStyle = textStyles[editingId] || {}
-        return (
-          <div
-            onClick={() => setEditingId(null)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 100,
-              background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: 'white', borderRadius: 16, width: 440, maxHeight: '80vh',
-                overflow: 'auto', padding: 24,
-                boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-              }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 16 }}>Edit Text</div>
-
-              <textarea
-                value={editText}
-                onChange={e => setEditText(e.target.value)}
-                style={{
-                  width: '100%', minHeight: 100, padding: 12, borderRadius: 10,
-                  border: '1px solid #E5E7EB', fontSize: 13, color: '#111827',
-                  fontFamily: curStyle.fontFamily || 'Inter, sans-serif',
-                  resize: 'vertical', outline: 'none', boxSizing: 'border-box',
-                  lineHeight: 1.5,
-                }}
-              />
-
-              {/* Toolbar */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14, alignItems: 'center' }}>
-                {/* Font selector */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <label style={{ fontSize: 10, fontWeight: 600, color: '#6B7280' }}>Font</label>
-                  <select
-                    value={curStyle.fontFamily || 'Inter, sans-serif'}
-                    onChange={e => handleStyleChange(editingId, 'fontFamily', e.target.value)}
-                    style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, background: 'white', cursor: 'pointer' }}
-                  >
-                    {FONT_OPTIONS.map(f => (
-                      <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Color picker */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <label style={{ fontSize: 10, fontWeight: 600, color: '#6B7280' }}>Color</label>
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    {COLOR_PRESETS.map(c => (
-                      <button
-                        key={c.value}
-                        onClick={() => handleStyleChange(editingId, 'color', c.value)}
-                        title={c.label}
-                        style={{
-                          width: 20, height: 20, borderRadius: '50%', border: (curStyle.color || '#FFFFFF') === c.value ? '2px solid #EA580C' : '1px solid #D1D5DB',
-                          background: c.value, cursor: 'pointer', padding: 0,
-                        }}
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      value={curStyle.color || '#FFFFFF'}
-                      onChange={e => handleStyleChange(editingId, 'color', e.target.value)}
-                      style={{ width: 20, height: 20, border: 'none', padding: 0, cursor: 'pointer', background: 'transparent' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Position toggle */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <label style={{ fontSize: 10, fontWeight: 600, color: '#6B7280' }}>Position</label>
-                  <div style={{ display: 'flex', gap: 2, background: '#F3F4F6', borderRadius: 6, padding: 2 }}>
-                    {POSITION_OPTIONS.map(p => (
-                      <button
-                        key={p}
-                        onClick={() => handleStyleChange(editingId, 'position', p)}
-                        style={{
-                          padding: '3px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          fontSize: 10, fontWeight: 600,
-                          background: (curStyle.position || 'center') === p ? 'white' : 'transparent',
-                          color: (curStyle.position || 'center') === p ? '#111827' : '#9CA3AF',
-                          boxShadow: (curStyle.position || 'center') === p ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                          textTransform: 'capitalize',
-                        }}
-                      >{p}</button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Font size */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <label style={{ fontSize: 10, fontWeight: 600, color: '#6B7280' }}>Size</label>
-                  <div style={{ display: 'flex', gap: 2, background: '#F3F4F6', borderRadius: 6, padding: 2 }}>
-                    {SIZE_OPTIONS.map(s => (
-                      <button
-                        key={s.label}
-                        onClick={() => handleStyleChange(editingId, 'fontSize', s.value)}
-                        style={{
-                          padding: '3px 8px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                          fontSize: 10, fontWeight: 600,
-                          background: (curStyle.fontSize || 14) === s.value ? 'white' : 'transparent',
-                          color: (curStyle.fontSize || 14) === s.value ? '#111827' : '#9CA3AF',
-                          boxShadow: (curStyle.fontSize || 14) === s.value ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                        }}
-                      >{s.label}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button
-                  onClick={() => setEditingId(null)}
-                  style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#6B7280' }}
-                >Cancel</button>
-                <button
-                  onClick={handleTextSave}
-                  style={{ flex: 1, padding: 10, borderRadius: 8, border: 'none', background: '#EA580C', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'white' }}
-                >Save Text</button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Toast notification */}
+      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           background: '#111827', color: 'white', padding: '10px 24px', borderRadius: 12,
           fontSize: 13, fontWeight: 600, zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-          animation: 'fadeInUp 0.25s ease'
-        }}>
-          {toast}
-        </div>
+          animation: 'fadeInUp 0.25s ease',
+        }}>{toast}</div>
       )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
       `}</style>
+    </div>
+  )
+}
+
+const actionBtn = {
+  flex: 1, padding: '8px', border: '1px solid #E5E7EB', borderRadius: 8,
+  background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+}
+
+function PillToggle({ label, options, value, onChange }) {
+  return (
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 10 }}>{label}</div>
+      <div style={{ display: 'flex', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 10, padding: 3, gap: 2 }}>
+        {options.map(o => (
+          <button key={o.value} onClick={() => onChange(o.value)}
+            style={{
+              flex: 1, padding: '10px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: value === o.value ? 600 : 400,
+              background: value === o.value ? 'white' : 'transparent',
+              color: value === o.value ? '#111827' : '#6B7280',
+              boxShadow: value === o.value ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s',
+            }}>{o.label}</button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CustomUpload({ showToast }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', paddingTop: 40 }}>
+      <Upload size={40} color="#D1D5DB" />
+      <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', textAlign: 'center' }}>Upload Your Own Content</div>
+      <p style={{ fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>Upload your own video or build a custom slideshow to remix with your brand voice.</p>
+      <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+        <label style={{
+          flex: 1, padding: '16px 12px', borderRadius: 12, border: '2px dashed #D1D5DB',
+          cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#6B7280',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center',
+          transition: 'border-color 0.15s',
+        }}>
+          <Upload size={20} />Upload Video
+          <input type="file" style={{ display: 'none' }} accept="video/*" onChange={() => showToast('Upload feature coming soon!')} />
+        </label>
+        <button onClick={() => showToast('Slideshow builder coming soon!')}
+          style={{
+            flex: 1, padding: '16px 12px', borderRadius: 12, border: '2px dashed #D1D5DB',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#6B7280', background: 'transparent',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          }}>
+          <Sparkles size={20} />Build Slideshow
+        </button>
+      </div>
     </div>
   )
 }

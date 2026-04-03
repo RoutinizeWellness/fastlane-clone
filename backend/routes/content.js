@@ -4,12 +4,30 @@ const auth = require('../middleware/auth');
 const ai = require('../services/ai');
 const pexels = require('../services/pexels');
 const db = require('../db');
+const remixEngine = require('../services/remixEngine');
 
-// Helper: fetch the user's brand config for personalized AI generation
+// Helper: fetch the user's brand config + analysis for personalized AI generation
 function getBrandContext(userId) {
   try {
-    const row = db.prepare('SELECT brand_name, industry, description, tone, pillars, audience FROM brand_config WHERE user_id = ?').get(userId);
-    return row || null;
+    const config = db.prepare('SELECT brand_name, industry, description, tone, pillars, audience, website FROM brand_config WHERE user_id = ?').get(userId);
+    // Also fetch rich analysis data from brand_analysis
+    const analysis = db.prepare('SELECT brand_name, product_type, industry, tone, target_audience, key_terms, tagline, brand_colors FROM brand_analysis WHERE user_id = ? ORDER BY analyzed_at DESC LIMIT 1').get(userId);
+    if (!config && !analysis) return null;
+    // Merge: analysis data fills gaps in config
+    return {
+      brand_name: config?.brand_name || analysis?.brand_name || '',
+      industry: config?.industry || analysis?.industry || '',
+      description: config?.description || analysis?.tagline || '',
+      tone: config?.tone || analysis?.tone || '',
+      pillars: config?.pillars || '[]',
+      audience: config?.audience || '{}',
+      website_url: config?.website || '',
+      product_type: analysis?.product_type || '',
+      target_audience: analysis?.target_audience || '',
+      key_terms: analysis?.key_terms || '[]',
+      tagline: analysis?.tagline || '',
+      brand_colors: analysis?.brand_colors || '[]',
+    };
   } catch {
     return null;
   }
@@ -94,38 +112,65 @@ router.post('/blitz', auth, async (req, res) => {
   }
 });
 
-// POST /remix — rewrite text for user's brand
+// POST /remix — deep structural remix: analyze viral structure, reconstruct for brand
 router.post('/remix', auth, async (req, res) => {
   try {
-    const { originalText, contentType, brandContext } = req.body;
-    if (!originalText) return res.status(400).json({ error: 'originalText is required' });
+    const { originalText, originalCaption, contentType, theme, catalogItemId, brandContext, intensity, userPrompt } = req.body;
 
-    // Also pull stored brand config for the user
+    // Support both originalText (legacy) and originalCaption (new)
+    const sourceText = originalCaption || originalText;
+    if (!sourceText) return res.status(400).json({ error: 'originalCaption or originalText is required' });
+
+    // Fetch stored brand config for the user
     const storedBrand = getBrandContext(req.user.id);
     const mergedBrand = brandContext || storedBrand;
 
-    let brandLine = '';
-    if (mergedBrand) {
-      const parts = [];
-      if (mergedBrand.brand_name) parts.push(`Brand: ${mergedBrand.brand_name}`);
-      if (mergedBrand.industry) parts.push(`Industry: ${mergedBrand.industry}`);
-      if (mergedBrand.description) parts.push(`About: ${mergedBrand.description}`);
-      if (mergedBrand.tone) parts.push(`Preferred tone: ${mergedBrand.tone}`);
-      if (mergedBrand.website_url) parts.push(`Website: ${mergedBrand.website_url}`);
-      brandLine = parts.join('\n');
+    // Use the deep structural remix engine
+    const remixResult = await remixEngine.deepRemix(sourceText, contentType || 'wall-of-text', mergedBrand, {
+      intensity: intensity || 'medium',
+      userPrompt: userPrompt || null,
+    });
+
+    // Generate "Why this works" explanation
+    let explanation = null;
+    try {
+      explanation = await remixEngine.generateExplanation(sourceText, remixResult, mergedBrand);
+    } catch (explErr) {
+      console.error('[Remix] Explanation generation failed:', explErr.message);
     }
 
-    const systemPrompt = `You are an expert social media copywriter. Rewrite the given text to match the user's brand voice and business. Keep the same format, length, and energy but adapt it to their specific brand/niche. Return ONLY the rewritten text, no explanations.`;
-    const userPrompt = `Original text (${contentType || 'content'}):\n"${originalText}"\n\n${brandLine ? `Brand context:\n${brandLine}` : 'Adapt this for a generic business audience.'}\n\nRewrite this text for the brand above. Keep similar length and format.`;
-
-    const result = await ai.callAI ? ai.callAI(systemPrompt, userPrompt) : null;
-
-    if (result) {
-      res.json({ adaptedText: result.replace(/^["']|["']$/g, '').trim() });
-    } else {
-      // Fallback: return original with a note
-      res.json({ adaptedText: originalText + ' [adapted for your brand]' });
+    // For slideshows, attach Pexels background images
+    if (remixResult.type === 'slideshow' && remixResult.slides) {
+      try {
+        const slidesWithImages = await pexels.getPhotosBySlide(remixResult.slides);
+        remixResult.slides = slidesWithImages;
+      } catch (imgErr) {
+        console.error('Pexels image fetch failed for remix slides:', imgErr);
+      }
     }
+
+    // For green-screen memes, fetch background video
+    if ((remixResult.type === 'green-screen' || remixResult.type === 'green-screen-meme') && (remixResult.backgroundSearch || remixResult.content)) {
+      try {
+        const bgQuery = remixResult.backgroundSearch || theme || 'funny reaction';
+        const videos = await pexels.searchVideos(bgQuery, 3);
+        remixResult.bgVideo = videos[0] || null;
+      } catch (vidErr) {
+        console.error('Pexels video fetch failed for remix:', vidErr);
+      }
+    }
+
+    res.json({
+      ...remixResult,
+      explanation,
+      remixedFrom: {
+        originalCaption: sourceText.substring(0, 200),
+        catalogItemId: catalogItemId || null,
+        theme: theme || null,
+      },
+      // Legacy field for backward compat
+      adaptedText: remixResult.content || (remixResult.slides ? JSON.stringify(remixResult.slides) : sourceText),
+    });
   } catch (e) {
     console.error('Remix error:', e);
     res.status(500).json({ error: 'Remix failed' });

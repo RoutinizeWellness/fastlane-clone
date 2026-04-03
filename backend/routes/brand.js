@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const db = require('../db');
 const { analyzeWebsite, saveBrandAnalysis } = require('../services/websiteAnalyzer');
+const brandStyleService = require('../services/brandStyle');
 
 // Add website and onboarding_complete columns if they don't exist
 try {
@@ -64,11 +65,31 @@ router.post('/analyze-url', auth, async (req, res) => {
         .run(req.user.id, brandName, industry, description, tone, JSON.stringify(brandColors), url);
     }
 
+    // Auto-populate brand style from analysis
+    try {
+      const extractedStyle = brandStyleService.extractFromAnalysis(data);
+      brandStyleService.upsertBrandStyle(req.user.id, extractedStyle);
+    } catch (styleErr) {
+      console.error('Brand style auto-extract failed:', styleErr.message);
+    }
+
     res.json({ analysis: data });
   } catch (err) {
     console.error('Brand analyze-url error:', err);
     res.status(500).json({ error: err.message || 'Failed to analyze website' });
   }
+});
+
+// GET /brand/style — get user's brand visual style
+router.get('/style', auth, (req, res) => {
+  const style = brandStyleService.getBrandStyle(req.user.id);
+  res.json(style);
+});
+
+// PUT /brand/style — update brand visual style
+router.put('/style', auth, (req, res) => {
+  const updated = brandStyleService.upsertBrandStyle(req.user.id, req.body);
+  res.json(updated);
 });
 
 // GET analysis

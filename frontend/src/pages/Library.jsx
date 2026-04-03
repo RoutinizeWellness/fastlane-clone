@@ -45,6 +45,7 @@ const SORT_OPTIONS = [
 const TABS = [
   { v: 'my-posts', l: 'My Posts', icon: Send, desc: 'Published' },
   { v: 'my-content', l: 'My Content', icon: PenTool, desc: 'Drafts & Created' },
+  { v: 'studio', l: 'Studio Items', icon: Film, desc: 'Composition Pipeline' },
   { v: 'bookmarks', l: 'Bookmarks', icon: Bookmark, desc: 'Saved' },
 ]
 
@@ -222,6 +223,7 @@ export default function Library() {
   const navigate = useNavigate()
   const [dbItems, setDbItems] = useState([])
   const [bookmarks, setBookmarks] = useState([])
+  const [studioItems, setStudioItems] = useState([])
   const [view, setView] = useState('my-content')
   const [filterType, setFilterType] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
@@ -232,12 +234,24 @@ export default function Library() {
   useEffect(() => {
     api.get('/library').then(r => setDbItems(r.data.items || [])).finally(() => setLoading(false))
     getBookmarks().then(b => setBookmarks(b))
+    api.get('/content-items?limit=100').then(r => setStudioItems(r.data.items || [])).catch(() => {})
   }, [])
 
   const items = useMemo(() => {
     let list
     if (view === 'bookmarks') {
       list = [...bookmarks]
+    } else if (view === 'studio') {
+      list = studioItems.map(si => ({
+        id: `studio-${si.id}`,
+        _studioId: si.id,
+        type: si.type,
+        title: si.title || 'Untitled',
+        created_at: si.created_at,
+        state: si.state,
+        render_url: si.render_url,
+        _isStudio: true,
+      }))
     } else {
       list = [...dbItems, ...MOCK_LIBRARY]
     }
@@ -257,13 +271,14 @@ export default function Library() {
       return sortBy === 'newest' ? db - da : da - db
     })
     return list
-  }, [view, filterType, sortBy, search, dbItems, bookmarks])
+  }, [view, filterType, sortBy, search, dbItems, bookmarks, studioItems])
 
   const tabCounts = useMemo(() => ({
     'my-posts': [...dbItems, ...MOCK_LIBRARY].length,
     'my-content': [...dbItems, ...MOCK_LIBRARY].length,
+    studio: studioItems.length,
     bookmarks: bookmarks.length,
-  }), [dbItems, bookmarks])
+  }), [dbItems, bookmarks, studioItems])
 
   const remove = async (id) => {
     if (view === 'bookmarks') {
@@ -429,6 +444,12 @@ export default function Library() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState view={view} navigate={navigate} />
+      ) : view === 'studio' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+          {items.map(item => (
+            <StudioCard key={item.id} item={item} navigate={navigate} />
+          ))}
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 16 }}>
           {items.map(item => (
@@ -436,6 +457,59 @@ export default function Library() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/* ── StudioCard — content items from composition pipeline ── */
+const STATE_STYLES = {
+  generated: { bg: '#DBEAFE', text: '#1D4ED8', label: 'Generated' },
+  edited: { bg: '#FEF3C7', text: '#92400E', label: 'Edited' },
+  approved: { bg: '#DCFCE7', text: '#15803D', label: 'Approved' },
+  scheduled: { bg: '#EDE9FE', text: '#5B21B6', label: 'Scheduled' },
+  published: { bg: '#F0FDF4', text: '#166534', label: 'Published' },
+}
+
+function StudioCard({ item, navigate }) {
+  const typeColor = TYPE_COLORS[item.type] || TYPE_COLORS['wall-of-text']
+  const typeLabel = TYPE_LABEL[item.type] || item.type
+  const state = STATE_STYLES[item.state] || STATE_STYLES.generated
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      onClick={() => navigate(`/edit/${item._studioId}`)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '16px 18px', borderRadius: 14, cursor: 'pointer',
+        background: 'white', border: '1.5px solid #E5E7EB',
+        transition: 'all 0.2s',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{
+          padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+          background: typeColor.bg, color: typeColor.text,
+        }}>{typeLabel}</span>
+        <span style={{
+          padding: '2px 10px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+          background: state.bg, color: state.text,
+        }}>{state.label}</span>
+        {item.render_url && (
+          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#059669', fontWeight: 600 }}>
+            <Film size={10} /> MP4
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 6, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {item.title}
+      </div>
+      <div style={{ fontSize: 11, color: '#9CA3AF' }}>
+        {formatDate(item.created_at || new Date()).replace(', 2026', '')}
+      </div>
     </div>
   )
 }

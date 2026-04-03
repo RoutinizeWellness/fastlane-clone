@@ -22,6 +22,8 @@ app.use('/api/engagement', require('./routes/engagement'));
 app.use('/api/brand', require('./routes/brand'));
 app.use('/api/tiktok', require('./routes/tiktok'));
 app.use('/api/unsplash', require('./routes/unsplash'));
+app.use('/api/render', require('./routes/render'));
+app.use('/api/content-items', require('./routes/contentItems'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.0.0' }));
 

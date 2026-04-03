@@ -25,6 +25,8 @@ export const useStore = create((set, get) => ({
   token: localStorage.getItem('fl_token') || null,
   brand: getBrandFromStorage() || { ...defaultBrand },
   onboardingComplete: localStorage.getItem('fl_onboarding_complete') === 'true',
+  remixResult: null,
+  brandStyle: null,
 
   login: (user, token) => {
     localStorage.setItem('fl_token', token)
@@ -56,4 +58,9 @@ export const useStore = create((set, get) => ({
     localStorage.setItem('fl_onboarding_complete', val ? 'true' : 'false')
     set({ onboardingComplete: val })
   },
+
+  setRemixResult: (result) => set({ remixResult: result }),
+  clearRemixResult: () => set({ remixResult: null }),
+
+  setBrandStyle: (style) => set({ brandStyle: style }),
 }))

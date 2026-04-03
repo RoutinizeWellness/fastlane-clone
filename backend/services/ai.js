@@ -47,7 +47,7 @@ function buildBrandLine(brandContext) {
   if (brandContext.pillars) {
     try {
       const p = typeof brandContext.pillars === 'string' ? JSON.parse(brandContext.pillars) : brandContext.pillars;
-      if (Array.isArray(p)) parts.push(`Content pillars: ${p.join(', ')}`);
+      if (Array.isArray(p) && p.length > 0) parts.push(`Content pillars: ${p.join(', ')}`);
     } catch {}
   }
   if (brandContext.audience) {
@@ -56,7 +56,17 @@ function buildBrandLine(brandContext) {
       if (a && typeof a === 'object' && Object.keys(a).length > 0) parts.push(`Target audience demographics: ${JSON.stringify(a)}`);
     } catch {}
   }
-  return parts.length ? `\n\nBRAND CONTEXT (personalize ALL content to this specific brand and its business — reference their actual products, audience, and industry):\n${parts.join('\n')}` : '';
+  if (!parts.length) return '';
+  return `\n\nIMPORTANT — BRAND CONTEXT (you MUST promote this specific business in ALL generated content):
+${parts.join('\n')}
+
+RULES FOR BRAND ADAPTATION:
+- Every piece of content must directly reference or promote this brand/product by name
+- Use the brand's actual product/service as the subject of tips, stories, and examples
+- Match the brand's tone and speak to their specific target audience
+- Weave in the brand's key terms and value propositions naturally
+- The content should feel like a genuine creator endorsing/using this product
+- Do NOT use generic placeholders like "your product" or "your brand" — use the ACTUAL brand name and product`;
 }
 
 // --- MOCK SLIDESHOW SETS ---
@@ -327,4 +337,145 @@ async function generateBlitz({ topic, platforms, count, brandContext }) {
   return results;
 }
 
-module.exports = { callAI, generateSlideshow, generateWallOfText, generateVideoHook, generateGreenScreen, generateBlitz };
+async function remixContent(originalContent, brandContext, theme, contentType) {
+  const brandLine = buildBrandLine(brandContext);
+  const themeLine = theme ? `\nTHEME/NICHE: ${theme} — adapt all examples, references, and language to this niche.` : '';
+
+  if (contentType === 'slideshow') {
+    const system = `You are a viral social media content remixer. You take proven viral carousel content and rewrite it for a specific brand and niche while keeping the EXACT same structure, energy, and viral mechanics (hook pattern, slide count, emotional arc, CTA style). The rewrite should feel like a completely new post — not a find-and-replace. Use casual, lowercase creator voice.${brandLine}${themeLine}
+
+Always respond with valid JSON only, no markdown.`;
+
+    const prompt = `Here is the original viral slideshow content:
+${typeof originalContent === 'string' ? originalContent : JSON.stringify(originalContent)}
+
+Remix this into brand-new content that:
+1. Keeps the EXACT same number of slides and structure (hook → tips → CTA)
+2. Maintains the same emotional energy and viral mechanics
+3. Completely rewrites all text for the brand/niche above
+4. Uses specific examples, metrics, and language relevant to the brand
+5. Keeps the casual, lowercase voice
+
+Return ONLY this JSON format:
+[
+  {"slide": 1, "title": "new hook title", "body": "new body text", "emoji": "relevant emoji"},
+  ...continue for all slides...
+]
+The last slide should have "cta": true.`;
+
+    const raw = await callAI(system, prompt);
+    if (raw) {
+      try {
+        const match = raw.match(/\[[\s\S]*\]/);
+        if (match) return { type: 'slideshow', slides: JSON.parse(match[0]) };
+      } catch {}
+    }
+    // Mock fallback: simple text replacement
+    return { type: 'slideshow', slides: buildMockRemixSlideshow(originalContent, brandContext, theme) };
+  }
+
+  if (contentType === 'wall-of-text') {
+    const system = `You are a viral social media content remixer. You take proven viral wall-of-text posts and rewrite them for a specific brand and niche. Keep the EXACT same structure: same paragraph breaks, same emotional arc, same hook style, same CTA pattern. But completely rewrite the content for the new brand/niche. Use the same casual abbreviations (bc, rn, ngl, tbh, imo) and line-break-heavy style.${brandLine}${themeLine}`;
+
+    const prompt = `Here is the original viral wall-of-text post:
+"${originalContent}"
+
+Remix this for the brand/niche above. Keep:
+- Same structure and paragraph count
+- Same emotional arc (hook → story → insight → CTA)
+- Same casual voice and abbreviation style
+- Similar length
+
+But completely rewrite with brand-specific examples, metrics, and language.
+Return ONLY the remixed text, no explanations.`;
+
+    const raw = await callAI(system, prompt);
+    if (raw) return { type: 'wall-of-text', content: raw.replace(/^["']|["']$/g, '').trim() };
+    return { type: 'wall-of-text', content: buildMockRemixText(originalContent, brandContext, theme) };
+  }
+
+  if (contentType === 'video-hook-and-demo' || contentType === 'video-hook') {
+    const system = `You are a viral video script remixer. You take proven viral video scripts and rewrite them for a specific brand and niche. Keep the EXACT same timing structure [HOOK - 0:00-0:03], [SETUP], [POINT 1], [POINT 2], [CTA] and the same conversational spoken style. Rewrite all content for the new brand/niche.${brandLine}${themeLine}`;
+
+    const prompt = `Here is the original viral video script:
+"${originalContent}"
+
+Remix this for the brand/niche above. Keep:
+- Same timing structure and section labels
+- Same conversational spoken cadence
+- Same hook type (question, statement, etc.)
+- Include CAPTION and HASHTAGS at the end
+
+But completely rewrite with brand-specific content.
+Return ONLY the remixed script, no explanations.`;
+
+    const raw = await callAI(system, prompt);
+    if (raw) return { type: 'video-hook', content: raw.replace(/^["']|["']$/g, '').trim() };
+    return { type: 'video-hook', content: buildMockRemixText(originalContent, brandContext, theme) };
+  }
+
+  if (contentType === 'green-screen-meme' || contentType === 'green-screen') {
+    const system = `You are a viral meme remixer. You take proven viral green screen memes and rewrite them for a specific brand and niche. Keep the same meme format and humor style but adapt all references for the new brand/niche. Use current internet slang.${brandLine}${themeLine}`;
+
+    const prompt = `Here is the original viral meme content:
+"${originalContent}"
+
+Remix this for the brand/niche above. Keep:
+- Same BACKGROUND_SEARCH, TOP_TEXT, BOTTOM_TEXT, REACTION_TEXT, CAPTION, HASHTAGS format
+- Same humor style and meme energy
+- Same self-deprecating/relatable vibe
+
+But completely rewrite for the new brand/niche.
+Return ONLY the remixed meme in the same format, no explanations.`;
+
+    const raw = await callAI(system, prompt);
+    if (raw) return { type: 'green-screen', content: raw.replace(/^["']|["']$/g, '').trim() };
+    return { type: 'green-screen', content: buildMockRemixText(originalContent, brandContext, theme) };
+  }
+
+  // Generic fallback
+  const system = `You are an expert content remixer. Rewrite the given content for the specified brand while maintaining the same format, structure, and viral energy.${brandLine}${themeLine}`;
+  const prompt = `Original content:\n"${originalContent}"\n\nRemix this for the brand above. Keep same format and energy. Return ONLY the remixed content.`;
+  const raw = await callAI(system, prompt);
+  if (raw) return { type: contentType || 'generic', content: raw.replace(/^["']|["']$/g, '').trim() };
+  return { type: contentType || 'generic', content: buildMockRemixText(originalContent, brandContext, theme) };
+}
+
+// Mock fallback helpers for remix when AI is unavailable
+function buildMockRemixSlideshow(originalContent, brandContext, theme) {
+  const brandName = brandContext?.brand_name || brandContext?.brandName || 'your brand';
+  const industry = brandContext?.industry || theme || 'business';
+  let slides;
+  if (typeof originalContent === 'string') {
+    try { slides = JSON.parse(originalContent); } catch { slides = null; }
+  } else if (Array.isArray(originalContent)) {
+    slides = originalContent;
+  }
+  if (!slides || !Array.isArray(slides)) {
+    slides = [
+      { slide: 1, title: `things i learned building ${brandName}`, body: `after months in ${industry}, here's what actually moved the needle.`, emoji: '🚀' },
+      { slide: 2, title: 'start with the problem', body: `everyone wants to build features. but ${brandName} grew when we focused on the core pain point.`, emoji: '🎯' },
+      { slide: 3, title: 'talk to your users', body: `we DM'd 100 people in ${industry}. their feedback changed everything about ${brandName}.`, emoji: '💬' },
+      { slide: 4, title: 'distribution beats product', body: `the best ${industry} product with no distribution loses. build your audience while you build.`, emoji: '📣' },
+      { slide: 5, title: 'consistency compounds', body: `month 1 felt pointless. month 6 everything clicked for ${brandName}. keep going.`, emoji: '📈' },
+      { slide: 6, title: `follow ${brandName} for more`, body: `sharing real ${industry} lessons — no fluff, just what works`, emoji: '🔖', cta: true },
+    ];
+    return slides;
+  }
+  return slides.map((s, i) => ({
+    ...s,
+    title: s.title ? s.title.replace(/my (?:saas|product|brand|store|business)/gi, brandName).replace(/\b(?:saas|ecommerce|fitness|finance)\b/gi, industry) : s.title,
+    body: s.body ? s.body.replace(/my (?:saas|product|brand|store|business)/gi, brandName).replace(/\b(?:saas|ecommerce|fitness|finance)\b/gi, industry) : s.body,
+  }));
+}
+
+function buildMockRemixText(originalContent, brandContext, theme) {
+  const brandName = brandContext?.brand_name || brandContext?.brandName || 'your brand';
+  const industry = brandContext?.industry || theme || 'business';
+  let text = typeof originalContent === 'string' ? originalContent : JSON.stringify(originalContent);
+  text = text.replace(/my (?:saas|product|brand|store|business)/gi, brandName);
+  text = text.replace(/\b(?:saas|ecommerce|fitness|finance|content creation|skincare)\b/gi, industry);
+  return text + `\n\n[remixed for ${brandName}]`;
+}
+
+module.exports = { callAI, generateSlideshow, generateWallOfText, generateVideoHook, generateGreenScreen, generateBlitz, remixContent };
